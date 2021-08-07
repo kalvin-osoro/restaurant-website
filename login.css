@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css?family=Roboto');
+
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    outline: none;
+    font-family: 'Roboto', sans-serif;
+}
+body{
+    margin: 0;
+    padding: 0;    
+    background-color: royalblue;    
+    background-size: cover;
+    background-position: center;
+    font-family: sans-serif;
+    height: 100vh; 
+}
+h2{
+    text-align: center;
+    color: #fff;
+}
+a h2:hover{
+    color: black;
+}
+.wrapper{
+    position: absolute;
+    top: 50%;
+    width: 320px;
+    height: 420px;
+    background: #000;
+    color: #fff;
+    top: 50%;
+    left: 50%;
+    position: absolute;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+    padding: 30px;
+}*/
+ 
+.contact-form{
+    max-width: 550px;
+    margin: 0 auto;    
+    background: rgba(0,0,0,0.79);
+    padding: 30px;
+    border-radius: 5px;
+    display: flex;    
+    box-shadow: 0 0 10px rgba(0, 0, 3, 0.13);
+}
+.input-fields{
+    display: flex;
+    flex-direction: column;
+    margin-right: 25%;
+
+}
+
+.input-fields .input, .msg textarea{   
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid #c5ecfd;
+    padding: 10px;
+    color: #fff;
+    width: 100%;
+}
+::-webkit-input-placeholder{
+    color: #c5ecfd;
+}
+.btn{
+    background: #39b7dd;
+    text-align: center;
+    padding: 15px;
+    border-radius: 5px;
+    color: #fff;
+    cursor: pointer;
+    text-transform: uppercase;
+    width: 100%;    
+    margin-bottom: 20px;
+    border-radius: 10px;
+    
+}
+.avatar{
+    width: 75px;
+    height: 75px;
+    border-radius: 50%;
+    position: absolute;
+    top: -40px;
+    left: calc(50% - 35px);
+}
+h1{
+    margin: 0;
+    padding: 0 0 20px;
+    text-align: center;
+    font-size: 30px;
+}
+.wrapper label{
+    margin-left: 0;
+    padding: 0;
+    font-weight: bold;
+    color: #fff;
+
+}
+
+.wrapper label{
+    margin-left: 10%;
+}
+.input{
+    margin-left: 20px;
+}
+.btn, p{
+    margin-left: 40px;
+}
+#fp{
+    font-size: smaller;
+    margin-left: 35%;
+}
+#spn{
+    color: blue;
+}
+.btn:hover{
+    cursor: pointer;
+    background: #ffc107;
+    color: #000;
+}
+
+
+
