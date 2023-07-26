@@ -21,6 +21,8 @@ Route::get('/users',[AdminController::class, "user"]);
 
 Route::get('/foodMenu',[AdminController::class, "foodMenu"]);
 
+Route::post('/uploadFood',[AdminController::class, "upload"]);
+
 Route::get('/deleteUser/{id}',[AdminController::class, "deleteUser"]);
 
 Route::get('/redirects',[HomeController::class, "redirects"]);
