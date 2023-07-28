@@ -24,6 +24,10 @@ Route::get('/foodMenu',[AdminController::class, "foodMenu"]);
 Route::post('/uploadFood',[AdminController::class, "upload"]);
 
 Route::get('/deleteUser/{id}',[AdminController::class, "deleteUser"]);
+Route::get('/deleteMenu/{id}',[AdminController::class, "deleteMenu"]);
+
+Route::get('/updateMenu/{id}',[AdminController::class, "updateMenu"]);
+Route::post('/update/{id}',[AdminController::class, "update"]);
 
 Route::get('/redirects',[HomeController::class, "redirects"]);
 

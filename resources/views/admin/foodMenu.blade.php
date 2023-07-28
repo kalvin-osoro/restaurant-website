@@ -44,6 +44,30 @@
             </div>
         </form>
 
+        <div style="margin-top: 10px" >
+            <table class="table">
+                <tr>
+                    <th scop="col">Food name</th>
+                    <th scop="col">price</th>
+                    <th scop="col">Description</th>
+                    <th scop="col">Image</th>
+                    <th scop="col">Action</th>
+                    <th scop="col">Action2</th>
+                </tr>
+
+                @foreach($data as $data)
+                <tr>
+                    <td>{{$data -> title}}</td>
+                    <td>{{$data -> price }}</td>
+                    <td>{{$data -> description}}</td>
+                    <td><img src="/foodImage/{{$data -> image}}" alt=""></td>
+                    <td><a href="{{url('/deleteMenu',$data ->id)}}">Delete</a></td>
+                    <td><a href="{{url('/updateMenu',$data ->id)}}">Delete</a></td>
+                </tr>
+                @endforeach
+            </table>
+        </div>
+
 
         </div>
   </div>
