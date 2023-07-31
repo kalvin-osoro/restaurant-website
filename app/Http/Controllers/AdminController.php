@@ -10,6 +10,8 @@ use App\Models\Food;
 
 use App\Models\Reservation;
 
+use App\Models\Chef;
+
 class AdminController extends Controller
 {
     public function user()
@@ -95,5 +97,74 @@ class AdminController extends Controller
       $data -> save();
 
       return redirect() -> back();
+    }
+
+    public function viewreservation()
+    {
+       $data = reservation::all();
+       
+       return view("admin.adminReservation",compact("data"));
+    }
+
+    public function viewchef()
+    {
+        $data=chef::all();
+        return view("admin.adminchef",compact("data"));
+    }
+
+    public function uploadchef(Request $request)
+    {
+        $data= new chef;
+        
+        $image = $request -> image;
+
+        $imageName = time().'.'.$image -> getClientOriginalExtension();
+        $request -> image -> move('chefImage', $imageName);
+
+        $data -> image = $imageName;
+
+        $data->name = $request->name;
+        $data->speciality=$request->speciality;
+
+        $data->save();
+
+        return redirect()->back();
+    }
+
+    public function updateChef($id)
+    {
+        $data=chef::find($id);
+
+        return view("admin.updatechef",compact("data"));
+    }
+
+    public function updateFoodChef(Request $request, $id)
+    {
+        $data=chef::find($id);
+
+        $image = $request -> image;
+
+        if($image)
+        {
+            $imageName = time().'.'.$image -> getClientOriginalExtension();
+            $request -> image -> move('chefImage', $imageName);
+    
+            $data -> image = $imageName;
+        }
+       
+        $data->name=$request->name;
+        $data->speciality=$request->speciality;
+
+        $data->save();
+
+        return redirect()->back();
+    }
+
+    public function deleteChef($id)
+    {
+        $data=chef::find($id);
+
+        $data->delete();
+        return redirect()->back();
     }
 }
