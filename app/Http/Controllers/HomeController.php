@@ -10,7 +10,9 @@ use App\Models\User;
 
 use App\Models\Food;
 
-use App\Models\chef;
+use App\Models\Chef;
+
+use App\Models\Cart;
 
 class HomeController extends Controller
 {
@@ -35,7 +37,50 @@ class HomeController extends Controller
 
         else
         {
-            return view("home", compact("data","data1"));
+            $user_id =Auth::id();
+            $count=cart::where('user_id', $user_id)->count();
+
+
+            return view("home", compact("data","data1","count"));
         }
+    }
+
+    public function addCart(Request $request, $id)
+    {
+       if(Auth::id())
+       {
+        $user_id=Auth::id();
+
+        $foodID=$id;
+
+        $quantity = $request->quantity;
+
+        $cart = new cart;
+
+        $cart->user_id=$user_id;
+
+        $cart->food_id=$foodID;
+
+        $cart->quantity=$quantity;
+
+        $cart->save();
+
+        return redirect()->back();
+       } 
+       else
+       {
+        return redirect('/login');
+       }
+    
+       
+    }
+
+    public function showCart(Request $request, $id)
+    {
+        $count=cart::where('user_id',$id)->count();
+
+        $data=cart::where('user_id',$id)->join('food','carts.food_id','=','food.id')->get();
+
+       return view('showcart',compact("count","data")); 
     }
 } 

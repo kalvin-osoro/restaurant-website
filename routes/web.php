@@ -43,6 +43,10 @@ Route::get('/updatechef/{id}',[AdminController::class, "updateChef"]);
 Route::post('/updatefoodchef/{id}',[AdminController::class, "updateFoodChef"]);
 Route::get('/deletechef/{id}',[AdminController::class, "deleteChef"]);
 
+Route::post('/addcart/{id}',[HomeController::class, "addCart"]);
+
+Route::get('/showcart/{id}',[HomeController::class, "showCart"]);
+
 Route::middleware([
     'auth:sanctum',
     config('jetstream.auth_session'),
