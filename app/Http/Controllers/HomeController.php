@@ -14,6 +14,8 @@ use App\Models\Chef;
 
 use App\Models\Cart;
 
+use App\Models\Order;
+
 class HomeController extends Controller
 {
     public function index()
@@ -79,8 +81,47 @@ class HomeController extends Controller
     {
         $count=cart::where('user_id',$id)->count();
 
+        $data1=cart::select('*')->where('user_id', '=', $id)->get();
+
         $data=cart::where('user_id',$id)->join('food','carts.food_id','=','food.id')->get();
 
-       return view('showcart',compact("count","data")); 
+       return view('showcart',compact("count","data", "data1")); 
     }
+
+    public function remove($id)
+    {
+        $data=cart::find($id);
+
+        $data->delete();
+
+        return redirect()->back();
+    }
+
+    public function orderConfirm(Request $request)
+    {
+        foreach($request->foodname as $key =>$foodname)
+        {
+            $data=new order;
+
+            $data->foodname=$foodname;
+
+            $data->price=$request->price($key);
+
+            $data->quantity=$request->quantity($key);
+
+            $data->image=$request->image($key);
+
+            $data->name=$request->name;
+
+            $data->phone=$request->phone;
+
+            $data->address=$request->address;
+
+            $data->save();
+        }
+
+        return redirect()->back();
+
+    }
+
 } 
