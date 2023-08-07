@@ -31,6 +31,8 @@ https://templatemo.com/tm-558-klassy-cafe
 
     <link rel="stylesheet" href="assets/css/lightbox.css">
 
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+
     </head>
     
     <body>
@@ -158,21 +160,84 @@ https://templatemo.com/tm-558-klassy-cafe
             <th>price</th>
             <th>Quantity</th>
             <th>image</th>
+            <th>Action</th>
             
         </tr>
 
-        @foreach($data as $data)
-        <tr>
-            <td>{{$data->title}}</td>
-            <td>{{$data->price}}</td>
-            <td>{{$data->quantity}}</td>
-            <td><img width ="200" height="200" src="/foodImage/{{$data->image}}" alt=""></td>
-        </tr>
+        <form action="{{url('orderconfirm')}}" method="post">
 
-        @endforeach
-    </table>
+        @csrf
+
+                @foreach($data as $index => $item)
+            <tr>
+                <input type="text" name="foodname[]" value="{{$item->title}}" hidden="">
+                <td>{{$item->title}}</td>
+                <input type="text" name="price[]" value="{{$item->price}}" hidden="">
+                <td>{{$item->price}}</td>
+                <input type="text" name="quantity[]" value="{{$item->quantity}}" hidden="">
+                <td>{{$item->quantity}}</td>
+                <input type="text" name="image[]" value="{{$item->image}}" hidden="">
+                <td><img width="200" height="200" src="/foodImage/{{$item->image}}" alt=""></td>
+                <td>
+                    <!-- Accessing corresponding data from $data1 using array index -->
+                    <a href="{{url('/remove', $data1[$index]->id)}}" class="btn btn-warning">Remove</a>
+                </td>
+            </tr>
+            @endforeach
+            </table>
+
+           
+
+
+            <div style="text-align: center;">
+                <button class="btn btn-primary" type="button" id="order">Order Now</button>
+            </div>
+
+            <div style="text-align: center; margin: 10px; padding: 10px; display: none" class="container" id="appear">
+                
+                <div  style="padding: 10px;">
+                    <label for="">Name</label>
+                    <input type="text" name="name" placeholder="Name">
+                </div>
+
+                <div  style="padding: 10px;">
+                    <label for="">Phone</label>
+                    <input type="number" name="phone" placeholder="Phone Number">
+                </div>
+
+                <div  style="padding: 10px;">
+                    <label for="">Address</label>
+                    <input type="text" name="address" placeholder="Address">
+                </div>
+
+                <div  style="padding: 10px;">            
+                    <input style="color: black" type="submit" class="btn btn-success" value="Order confirm">
+
+                    <button id="close" class="btn btn-danger" type="button">Close</button>
+                </div>
+
+            </div>
+
+    </form>
 
     </div>
+
+    <script>
+        
+        $("#order").click(
+            function()
+            {
+               $("#appear").show(); 
+            }
+        )
+
+        $("#close").click(
+            function()
+            {
+               $("#appear").hide(); 
+            }
+        )
+    </script>
 
     <!-- jQuery -->
     <script src="assets/js/jquery-2.1.0.min.js"></script>

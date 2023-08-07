@@ -53,7 +53,13 @@ https://templatemo.com/tm-558-klassy-cafe
                         <!-- ***** Logo Start ***** -->
                         <a href="index.html" class="logo">
                             <img src="assets/images/klassy-logo.png" align="klassy cafe html template">
+
+                            <a  class="menu-trigger">
+                                <span>Menu</span>
+                            </a>
                         </a>
+
+
                         <!-- ***** Logo End ***** -->
                         <!-- ***** Menu Start ***** -->
                         <ul class="nav">
@@ -137,9 +143,7 @@ https://templatemo.com/tm-558-klassy-cafe
             @endif
                             </li>
                         </ul>        
-                        <a class='menu-trigger'>
-                            <span>Menu</span>
-                        </a>
+                       
                         <!-- ***** Menu End ***** -->
                     </nav>
                 </div>
