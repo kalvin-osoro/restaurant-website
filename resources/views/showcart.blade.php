@@ -186,6 +186,9 @@ https://templatemo.com/tm-558-klassy-cafe
             @endforeach
             </table>
 
+           
+
+
             <div style="text-align: center;">
                 <button class="btn btn-primary" type="button" id="order">Order Now</button>
             </div>
