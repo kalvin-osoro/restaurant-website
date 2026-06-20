@@ -1,0 +1,5 @@
+<?php
+namespace App\Http\Controllers;
+use App\Models\MenuItem;
+use Illuminate\Http\Request;
+class CartController extends Controller { public function index(Request $r){$cart=collect($r->session()->get('cart',[]));return view('cart.index',compact('cart'));} public function store(Request $r,MenuItem $menuItem){$r->validate(['quantity'=>'nullable|integer|min:1|max:20']);abort_unless($menuItem->is_available,422);$cart=$r->session()->get('cart',[]);$id=(string)$menuItem->id;$cart[$id]=['id'=>$menuItem->id,'name'=>$menuItem->name,'price'=>(float)$menuItem->price,'quantity'=>min(20,($cart[$id]['quantity']??0)+$r->integer('quantity',1))];$r->session()->put('cart',$cart);return back()->with('status','Item added to cart.');} public function update(Request $r,MenuItem $menuItem){$data=$r->validate(['quantity'=>'required|integer|min:0|max:20']);$cart=$r->session()->get('cart',[]);if($data['quantity']===0)unset($cart[$menuItem->id]);elseif(isset($cart[$menuItem->id]))$cart[$menuItem->id]['quantity']=$data['quantity'];$r->session()->put('cart',$cart);return back();} }
