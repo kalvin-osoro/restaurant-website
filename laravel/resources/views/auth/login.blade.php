@@ -1,0 +1,1 @@
+@extends('layouts.app') @section('content')<h1>Log in</h1><form method="post">@csrf<label>Email <input type="email" name="email" required></label><label>Password <input type="password" name="password" required></label><label><input type="checkbox" name="remember"> Remember me</label><button>Log in</button></form>@endsection

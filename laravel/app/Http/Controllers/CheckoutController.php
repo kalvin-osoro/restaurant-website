@@ -1,0 +1,7 @@
+<?php
+namespace App\Http\Controllers;
+use App\Models\MenuItem;
+use App\Models\Order;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+class CheckoutController extends Controller { public function create(Request $r){$cart=collect($r->session()->get('cart',[]));abort_if($cart->isEmpty(),422,'Your cart is empty.');return view('checkout.create',compact('cart'));} public function store(Request $r){$data=$r->validate(['payment_method'=>'required|in:cash_on_delivery,card,mobile_money','delivery_address'=>'required|string|max:2000','notes'=>'nullable|string|max:2000']);$cart=collect($r->session()->get('cart',[]));abort_if($cart->isEmpty(),422,'Your cart is empty.');$items=MenuItem::whereIn('id',$cart->pluck('id'))->where('is_available',true)->get()->keyBy('id');abort_unless($items->count()===$cart->count(),422,'One or more items are unavailable.');$order=DB::transaction(function()use($r,$data,$cart,$items){$subtotal=0;$order=Order::create($data+['user_id'=>$r->user()->id,'status'=>'pending','payment_status'=>'pending','subtotal'=>0,'delivery_fee'=>0,'total'=>0]);foreach($cart as $line){$item=$items[$line['id']];$total=$item->price*$line['quantity'];$subtotal+=$total;$order->items()->create(['menu_item_id'=>$item->id,'name'=>$item->name,'unit_price'=>$item->price,'quantity'=>$line['quantity'],'line_total'=>$total]);}$order->update(['subtotal'=>$subtotal,'total'=>$subtotal]);return $order;});$r->session()->forget('cart');return redirect()->route('orders.show',$order)->with('status','Order placed. Payment remains pending until confirmed.');} }
