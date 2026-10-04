@@ -6,6 +6,7 @@ use Tests\TestCase;
 
 class ApiHealthTest extends TestCase
 {
+    use \Illuminate\Foundation\Testing\RefreshDatabase;
     public function test_api_health_endpoint_reports_service_status(): void
     {
         $this->getJson('/api/health')
