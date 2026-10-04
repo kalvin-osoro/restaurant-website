@@ -1,1 +1,1 @@
-{"version":2,"defects":[],"times":{"Tests\\Feature\\ApiHealthTest::test_api_health_endpoint_reports_service_status":0.118}}
+{"version":2,"defects":[],"times":{"Tests\\Feature\\ApiHealthTest::test_api_health_endpoint_reports_service_status":0.033}}

@@ -1,0 +1,15 @@
+review both projects under tim folder. I want you to implement the backend for this this form data in the laravel application. use best practises and take security in mind. the data should be persisted to the database. Also include an email notification once the consultation is booked and a text message. keep notification open and configurable to all channels including the above mentioned and whatsapp but not limited to them. It should be easy to add new notification platforms once a consultation has been booked. Also have a table that will have logs for all these plartfoms for notification. For each request coming in, there should be a function to log them in a database table called tbl_request_logs. this will be standard operating procedure
+
+Confidential Inquiry
+### Book a Consultation
+
+close
+Full Name *
+Organization / Firm
+
+Corporate Email Address *
+Direct Phone Number *
+
+Nature of Inquiry *General ConsultationCorporate RepresentationCase ReferralMergers & AcquisitionsIntellectual PropertyCommercial DisputeOther Institutional Matter
+Context & Matter Overview *
+Submit Inquiry
