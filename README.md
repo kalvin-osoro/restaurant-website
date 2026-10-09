@@ -16,6 +16,56 @@ php artisan serve
 
 Set `CORS_ALLOWED_ORIGINS` in `.env` to the frontend origin when it differs from `http://localhost:3000`. Keep `.env` local and never commit credentials. If you already have a `.env`, preserve its database settings and update only the values needed for this project.
 
+## Docker setup
+
+Install Docker Engine (or Docker Desktop) with Docker Compose, then create a
+separate container environment file:
+
+```bash
+cp .env.docker.example .env.docker
+docker compose run --rm --no-deps --entrypoint php app -r 'echo "base64:" . base64_encode(random_bytes(32)) . PHP_EOL;'
+```
+
+Paste the generated value into `APP_KEY` in `.env.docker`. Keep this key stable
+and backed up: consultation records are encrypted with it. To use an existing
+database, use its existing key instead. Configure CORS and notification providers
+in this file as needed. SMTP hosts must be reachable from the containers;
+`127.0.0.1` refers to the container itself. On Linux, use a reachable SMTP hostname
+or add a `host.docker.internal:host-gateway` mapping to the services when using
+host-based SMTP.
+
+```bash
+docker compose up --build -d
+curl http://localhost:8000/api/health
+docker compose ps
+docker compose logs -f app queue scheduler
+```
+
+Compose starts Apache/PHP, a queue worker, and the notification scheduler. A
+one-shot migration service must succeed before they start. SQLite, uploaded files,
+Laravel logs, and framework storage persist in the `app-storage` named volume.
+The local `.env`, local SQLite database, and installed `vendor` directory are not
+copied into the image. This starts a separate database for the container setup.
+
+The API binds to localhost by default. To change its port, run
+`APP_PORT=8080 docker compose up -d` and update `APP_URL` in `.env.docker`.
+For remote hosting, adjust the port binding and put HTTPS in front of the service;
+set `APP_ENV=production` and configure real mail/SMS providers.
+
+Useful maintenance commands:
+
+```bash
+docker compose exec --user www-data app php artisan consultations:dispatch
+docker compose exec --user www-data app php artisan queue:retry <failed-job-uuid>
+docker compose down
+```
+
+`docker compose down` preserves data. Adding `--volumes` deletes the database and
+stored files. Back up the volume and `APP_KEY` together. Application source is
+baked into the image; after code changes, rebuild with `docker compose up --build -d`.
+Dependencies are installed from `composer.lock` without development packages.
+Run the test suite locally using `php artisan test`.
+
 ## Project contents
 
 - `app/`, `routes/`, `database/`, and `config/` are the active Laravel backend.
