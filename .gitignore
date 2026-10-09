@@ -1,5 +1,6 @@
 /vendor
 /.env
+/.env.docker
 /storage/*.key
 /storage/logs/*
 !/storage/logs/.gitignore
