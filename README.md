@@ -73,6 +73,67 @@ Run the test suite locally using `php artisan test`.
 - `extras/restaurant-laravel/` holds the archived restaurant-specific Laravel controllers, models, migrations, views, and routes.
 - The sibling `99lawyers/` frontend has not been changed.
 
+## Public attorney profiles and case studies
+
+Run `php artisan migrate` to create the content tables. These endpoints return
+database content and remain under the mandatory HTTP audit middleware:
+
+| Endpoint | Filters / response |
+| --- | --- |
+| `GET /api/attorneys` | `q` (literal name/biography search), `practiceArea` (slug or name), `page`, `perPage` |
+| `GET /api/attorneys/{slug}` | Published profile or 404 |
+| `GET /api/practice-areas` | Ordered areas used by published attorneys |
+| `GET /api/cases` | `category` (slug or name), `featured=1` or `0`, `page`, `perPage` |
+| `GET /api/cases/{slug}` | Published, non-confidential study or 404 |
+| `GET /api/case-categories` | Ordered categories used by public studies, including Corporate Governance |
+
+Lists return `{"data": [...], "links": {...}, "meta": {...}}`; detail endpoints
+return `{"data": {...}}`. Taxonomy lists return `{"data": [{"id": "slug", "name": "Display name"}]}`.
+Pages default to 20 records and allow up to 100. Unknown valid filters return an
+empty collection; malformed filters return 422. Read endpoints share a limit of
+60 requests/minute per IP. Clients must unwrap `data` and follow `links.next` to
+load all records. There is no fallback to frontend fixtures in these endpoints.
+
+Profiles expose the `Attorney` fields from the frontend in camelCase; `id` is the
+public slug. Studies expose `CaseResolution` fields plus nullable `featuredPosition`.
+Absent optional study fields are omitted. Attorneys sort by display order then
+slug. Studies sort by featured position (featured first), display order, then slug.
+`featured=1` returns only featured studies, without assuming four records exist.
+Internal numeric IDs, publication states, and timestamps are not serialized.
+All public attorney queries require `published`; all public case queries also
+require `confidential=false`. Hidden records return 404 even by direct slug.
+
+Maintain content through a trusted CLI import until protected administration is
+implemented. Review all biographies, qualifications, contact details, and case
+summaries before setting `status` to `published`. This module stores marketing
+summaries, not client files or internal legal matter notes.
+
+```bash
+php artisan website-content:import /path/to/reviewed-content.json
+# Local/testing environments only; fictional examples, never automatic:
+php artisan website-content:demo
+# Container equivalent:
+docker compose exec --user www-data app php artisan website-content:demo
+```
+
+Use [database/demo/website-content.json](database/demo/website-content.json) as the
+JSON format reference. Top-level sections are `practiceAreas`, `caseCategories`,
+`attorneys`, and `cases`; sections may be omitted. Category names match the current
+frontend category union; category and practice-area relationships use slugs.
+Lists such as education, admissions, notableCases, and keyDetails must be ordered
+arrays of strings. The importer validates the entire file, then upserts records
+by slug in one transaction and synchronizes attorney practice areas. Referenced
+taxonomies must already exist or be supplied in the file. Reimports update the
+same records; omitted records are retained. Each supplied profile/study replaces
+its editable fields. Omitted status defaults to `draft`, omitted case
+confidentiality defaults to `true`, and omitted featured position clears it.
+To withdraw content, reimport it as `archived` (or confidential for a study).
+
+The backend is ready for frontend API adapters. The sibling frontend still uses
+`InMemoryAttorneyRepository` and `InMemoryCaseRepository`: switching those adapters,
+adding loading/error/retry states, and replacing fixed featured IDs/category tabs
+remain frontend integration work. Do not ship confidential frontend case fixtures.
+
 ## Consultation inquiries
 
 Both frontend inquiry forms use `POST /api/consultations`. Configure the sibling
