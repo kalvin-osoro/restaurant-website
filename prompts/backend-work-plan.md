@@ -38,6 +38,22 @@ Review references:
 - `99lawyers/src/presentation/components/common/ConsultationModal.tsx`: unchecked inquiry-prefill casts.
 - `lexora-legal/routes/api.php`: current health and consultation endpoints.
 
+## Implementation status — 13 October 2026
+
+The attorney/profile and public case-study backend is implemented: migrations,
+publication-safe repositories, application actions, public Resources, paginated
+read APIs, validated atomic JSON imports, and explicitly invoked local/testing
+demo content. Public taxonomy endpoints show only categories/areas attached to
+visible content. `website-content:demo` replaces the proposed demo seeder workflow;
+it refuses production environments. Backend tests cover publication rules,
+confidentiality, response contracts, filters, ordering, pagination, and imports.
+
+Frontend integration remains open: the sibling `99lawyers` app still uses its
+in-memory attorney/case adapters. The database-to-screen acceptance criteria below
+are therefore pending. No live database migrations or production content imports
+were performed as part of this implementation. See the backend README for setup
+and import commands.
+
 ## Phase 0 — Resolve existing integration and operational gaps
 
 - [ ] Confirm database access and run outstanding migrations. The previous migration attempt was blocked by MySQL permissions for `kalvin` on `99_lawyers`; recheck current access rather than assuming it is still blocked.
@@ -53,10 +69,10 @@ Acceptance: both inquiry entry points submit valid categories and phone numbers;
 
 ### Persistence and publication
 
-- [ ] Create an `attorneys` table with internal primary key, unique public slug, name, role, biography, image URL, public email/phone, education, admissions, approved notable-case summaries, publication status, and display order.
-- [ ] Store ordered education/admission/notable-case lists as validated JSON arrays initially. Create reusable practice areas with unique slugs and an attorney/practice-area pivot, so filtering and later administration use one vocabulary.
-- [ ] Use `draft`, `published`, and `archived` publication states. Public list, search, and detail queries must share the same published-only rule.
-- [ ] Preserve existing slug IDs where appropriate. The frontend expects string IDs; expose the public slug as `id`, while keeping internal numeric IDs private.
+- [x] Create an `attorneys` table with internal primary key, unique public slug, name, role, biography, image URL, public email/phone, education, admissions, approved notable-case summaries, publication status, and display order.
+- [x] Store ordered education/admission/notable-case lists as validated JSON arrays initially. Create reusable practice areas with unique slugs and an attorney/practice-area pivot, so filtering and later administration use one vocabulary.
+- [x] Use `draft`, `published`, and `archived` publication states. Public list, search, and detail queries must share the same published-only rule.
+- [x] Preserve existing slug IDs where appropriate. The frontend expects string IDs; expose the public slug as `id`, while keeping internal numeric IDs private.
 - [ ] Supply clearly labeled demo seeders for local/test environments. Do not automatically publish fictional people or unapproved professional claims in production.
 
 ### Public API
@@ -67,11 +83,11 @@ Acceptance: both inquiry entry points submit valid categories and phone numbers;
 | GET | `/api/attorneys/{slug}` | Published profile; return 404 for absent, draft, or archived profiles |
 | GET | `/api/practice-areas` | Public practice areas for filtering and display |
 
-- [ ] Use API Resources to explicitly expose frontend fields in camelCase, matching `Attorney` in `Entities.ts`.
-- [ ] Use `{ "data": [...] }` for lists and `{ "data": {...} }` for detail responses. Add `links` and `meta` when paginated; set a maximum page size and stable ordering.
+- [x] Use API Resources to explicitly expose frontend fields in camelCase, matching `Attorney` in `Entities.ts`.
+- [x] Use `{ "data": [...] }` for lists and `{ "data": {...} }` for detail responses. Add `links` and `meta` when paginated; set a maximum page size and stable ordering.
 - [ ] The existing frontend expects arrays: API adapters must unwrap resources and handle pagination explicitly. For the initial small directory, load all published profiles through bounded pages so the Team view does not silently show only page one.
-- [ ] Validate and bound search/filter inputs; use parameterized queries and escape SQL LIKE wildcards when treating search text literally.
-- [ ] Retain the global `tbl_request_logs` middleware and apply an appropriate public-read rate limit.
+- [x] Validate and bound search/filter inputs; use parameterized queries and escape SQL LIKE wildcards when treating search text literally.
+- [x] Retain the global `tbl_request_logs` middleware and apply an appropriate public-read rate limit.
 
 ### Frontend integration
 
@@ -93,10 +109,10 @@ Acceptance: contact details come from published records; zero, one, or multiple 
 
 ## Phase 3 — Public case studies
 
-- [ ] Create case-study categories and case studies covering the existing `CaseResolution` fields, public slug, publication state, confidentiality flag, display order, and featured position.
-- [ ] Store only approved public summaries in this module. It is a marketing case-study system, not a repository for legal case files.
-- [ ] Add `GET /api/cases`, `GET /api/cases/{slug}`, and `GET /api/case-categories`. Validate category filters and apply stable ordering/pagination.
-- [ ] Public queries must require published status AND `confidential = false`, including direct detail lookups. Resources must not expose internal notes or unapproved material.
+- [x] Create case-study categories and case studies covering the existing `CaseResolution` fields, public slug, publication state, confidentiality flag, display order, and featured position.
+- [x] Store only approved public summaries in this module. It is a marketing case-study system, not a repository for legal case files.
+- [x] Add `GET /api/cases`, `GET /api/cases/{slug}`, and `GET /api/case-categories`. Validate category filters and apply stable ordering/pagination.
+- [x] Public queries must require published status AND `confidential = false`, including direct detail lookups. Resources must not expose internal notes or unapproved material.
 - [ ] Implement `ApiCaseRepository`; replace fixed featured case IDs and hardcoded category tabs with API content. The frontend currently omits `Corporate Governance` from its tabs even though the domain supports it.
 - [ ] Add a server-defined featured order; render layouts safely when fewer than four featured studies exist. Do not silently omit additional records or categories.
 
@@ -157,8 +173,8 @@ Keep migrations, configuration, commands, routes, and tests in Laravel's standar
 
 ## Validation and rollout
 
-- [ ] Test published/draft/archived rules through both list and detail endpoints; cover search, filters, pagination, ordering, relationships, and confidential case exclusions.
-- [ ] Test API Resources against frontend field names and types, including optional fields, arrays, string IDs, and coordinates.
+- [x] Test published/draft/archived rules through both list and detail endpoints; cover search, filters, pagination, ordering, relationships, and confidential case exclusions.
+- [x] Test API Resources against frontend field names and types, including optional fields, arrays, string IDs, and coordinates.
 - [ ] Test authentication, authorization, privileged field rejection, and audit metadata once protected routes are added.
 - [ ] Use mocks for notification/provider tests; retain the existing consultation regression suite.
 - [ ] Run `php artisan test`, then frontend `npm run lint` and `npm run build` for each integrated module. Perform a browser check of affected cards, modals, loading/error states, and inquiry prefills.
