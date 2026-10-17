@@ -161,6 +161,28 @@ for inquiry and audit records according to the firm's requirements.
 
 ### Notification delivery
 
+Check the environment before starting delivery processes:
+
+```bash
+php artisan migrate
+php artisan consultations:check
+# In Docker, after rebuilding and migrating:
+docker compose exec --user www-data app php artisan consultations:check
+```
+
+`consultations:check` checks configuration and required database tables without
+sending messages or printing secrets. It fails for log-only email, missing Twilio
+settings, and missing database prerequisites. A successful check does not verify
+SMTP authentication, provider connectivity, running processes, or message receipt.
+Authenticated SMTP needs both `MAIL_USERNAME` and `MAIL_PASSWORD`; unauthenticated
+trusted relays can leave both empty. Use the provider's approved sender and TLS
+settings (`MAIL_SCHEME=smtp` with STARTTLS, or `smtps` for implicit TLS).
+
+The `cache_locks` migration is required for scheduler and worker overlap locks.
+Use `CACHE_STORE=database` and `QUEUE_CONNECTION=database` for the supplied setup.
+Local defaults use `MAIL_MAILER=log` and blank provider credentials; real email/SMS
+requires environment-specific provider configuration.
+
 Booking atomically creates one `notification_logs` outbox record for each enabled
 channel. Start these processes to deliver notifications:
 
@@ -186,6 +208,43 @@ uses a `whatsapp:+...` sender and an approved Twilio Content template with varia
 `1` set to the inquiry reference. Enable WhatsApp only for recipients whose opt-in
 you have obtained; this public form does not currently collect WhatsApp consent.
 Messages contain only the reference and acknowledgment, never the matter overview.
+
+For a host deployment, [deploy/supervisor/lexora-notifications.conf](deploy/supervisor/lexora-notifications.conf)
+provides queue and scheduler process definitions. Adjust the installation path,
+PHP binary, and process user, then install it in your Supervisor configuration
+directory. The process user needs write access to `storage` and `bootstrap/cache`.
+Run `supervisorctl reread`, `supervisorctl update`, and
+`supervisorctl status lexora-queue lexora-scheduler` on that host. This example
+uses `schedule:work`; choose either this scheduler or the cron setup above.
+Docker Compose already manages both processes, so host Supervisor is unnecessary
+for a Docker deployment. After configuration changes, rebuild/recreate Docker
+services, or refresh host configuration caches and restart both Supervisor
+processes so long-running processes load the new settings.
+
+Controlled delivery verification (requires approved test recipients and provider
+credentials in the intended environment):
+
+1. Configure SMTP and Twilio in that environment's secret `.env` file. Clear or
+   rebuild cached Laravel configuration, then run `consultations:check` there.
+2. Review pending/queued deliveries before starting a worker: it will process
+   existing work as well as the test. Use an isolated development database for
+   controlled verification when existing recipients must not be contacted.
+3. Start the queue worker and one scheduler using Compose or Supervisor. Confirm
+   both processes remain running with `docker compose ps` or `supervisorctl status`.
+4. Submit one inquiry with a controlled inbox and E.164 phone number through
+   `POST /api/consultations`. Use harmless test details. The regular scheduler
+   should queue its outbox records within a minute.
+5. Use the returned reference to locate its consultation and notification logs
+   through trusted database access. Confirm each enabled channel transitions to
+   `sent`, with attempts and timestamps recorded; investigate sanitized error
+   codes and `php artisan queue:failed` if it does not. Never publish these records.
+6. Confirm receipt in the controlled inbox/device separately. `sent` proves
+   provider acceptance only. Record the reference, channel outcomes, and process
+   status in the deployment record; exclude recipient details and credentials.
+
+Routine `php artisan test` verification uses mocked mail and Twilio requests.
+It now also exercises the database queue worker and scheduler mutex with shared
+database locks, rather than only calling the job's `handle()` method directly.
 
 To add a platform, implement `App\Domain\Consultations\Contracts\ConsultationChannel` and register its
 class and enabled flag under `config/consultations.php`'s `channels`. Laravel resolves
