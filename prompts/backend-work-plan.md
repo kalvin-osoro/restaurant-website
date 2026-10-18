@@ -54,9 +54,34 @@ are therefore pending. No live database migrations or production content imports
 were performed as part of this implementation. See the backend README for setup
 and import commands.
 
+## Implementation status — 17 October 2026
+
+Completed **Phase 0, item 1**: confirmed access to the configured local MySQL
+database `99_lawyers` and applied the pending
+`2026_10_13_000001_create_website_content_tables` migration (batch 2).
+`php artisan migrate:status` now reports all four migrations as ran. The previous
+database permission blocker did not recur. The regression suite passed with
+17 tests and 186 assertions. No demo content was imported.
+
+## Notification operations follow-up — 17 October 2026
+
+Continued **Phase 0, item 2**. Review found that database-backed overlap locks
+were required by the scheduler and queue jobs, but `cache_locks` had no migration.
+Added and applied that migration to the configured local development database.
+Added `consultations:check` (non-sending readiness diagnostics), a host Supervisor
+example, and a controlled-delivery runbook in the README. The regression suite
+passes 22 tests / 218 assertions, including real database worker execution and
+scheduler mutexes with mocked providers.
+
+Item 2 remains incomplete: local email uses `log`, and Twilio SID/token/SMS sender
+are missing. The local readiness check reports those configuration gaps. The
+intended deployment environment and controlled recipients must be supplied before
+configuring real delivery and verifying receipt. No real messages were sent and
+no delivery workers were started against the local database during this work.
+
 ## Phase 0 — Resolve existing integration and operational gaps
 
-- [ ] Confirm database access and run outstanding migrations. The previous migration attempt was blocked by MySQL permissions for `kalvin` on `99_lawyers`; recheck current access rather than assuming it is still blocked.
+- [x] Confirm database access and run outstanding migrations. Completed 17 October 2026 against the configured local MySQL database; the subsequent cache-lock migration is also applied (five migrations total).
 - [ ] Configure SMTP, SMS provider credentials, scheduler, and queue worker in the intended environment. Verify delivery with controlled test recipients; do not send real notifications during routine automated tests.
 - [ ] Map attorney practice areas and case categories to valid inquiry categories. Examples: `M&A` → `Mergers & Acquisitions`, `Commercial Litigation` → `Commercial Dispute`. Fall back to `General Consultation` for unmapped values; remove unchecked type casts.
 - [ ] Show the international phone format expected by the backend and align frontend validation with that contract.
@@ -73,7 +98,7 @@ Acceptance: both inquiry entry points submit valid categories and phone numbers;
 - [x] Store ordered education/admission/notable-case lists as validated JSON arrays initially. Create reusable practice areas with unique slugs and an attorney/practice-area pivot, so filtering and later administration use one vocabulary.
 - [x] Use `draft`, `published`, and `archived` publication states. Public list, search, and detail queries must share the same published-only rule.
 - [x] Preserve existing slug IDs where appropriate. The frontend expects string IDs; expose the public slug as `id`, while keeping internal numeric IDs private.
-- [ ] Supply clearly labeled demo seeders for local/test environments. Do not automatically publish fictional people or unapproved professional claims in production.
+- [x] Supply clearly labeled demo content for local/test environments via `website-content:demo` (the implemented alternative to seeders). It refuses production environments and runs only when explicitly invoked.
 
 ### Public API
 
@@ -174,9 +199,9 @@ Keep migrations, configuration, commands, routes, and tests in Laravel's standar
 ## Validation and rollout
 
 - [x] Test published/draft/archived rules through both list and detail endpoints; cover search, filters, pagination, ordering, relationships, and confidential case exclusions.
-- [x] Test API Resources against frontend field names and types, including optional fields, arrays, string IDs, and coordinates.
+- [ ] Test API Resources against frontend field names and types, including optional fields, arrays, string IDs, and coordinates. Attorney/case contracts are covered; office coordinates await Phase 2.
 - [ ] Test authentication, authorization, privileged field rejection, and audit metadata once protected routes are added.
-- [ ] Use mocks for notification/provider tests; retain the existing consultation regression suite.
+- [x] Use mocks for notification/provider tests; retain the existing consultation regression suite.
 - [ ] Run `php artisan test`, then frontend `npm run lint` and `npm run build` for each integrated module. Perform a browser check of affected cards, modals, loading/error states, and inquiry prefills.
 - [ ] Document endpoints, sample responses, configuration, seed/import commands, and operational prerequisites in the README.
 - [ ] Apply migrations to a development database first. Import approved content, verify the API, switch the relevant frontend repository, then remove that module's production seed dependency.
