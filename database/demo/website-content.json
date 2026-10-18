@@ -1,0 +1,40 @@
+{
+  "practiceAreas": [
+    {"slug": "corporate-law", "name": "Corporate Law", "displayOrder": 1}
+  ],
+  "caseCategories": [
+    {"slug": "corporate-governance", "name": "Corporate Governance", "displayOrder": 1}
+  ],
+  "attorneys": [
+    {
+      "slug": "demo-partner",
+      "name": "Demo Partner — Fictional Profile",
+      "role": "Partner",
+      "bio": "Fictional demonstration profile for local development. Replace with reviewed professional content before deployment.",
+      "imageUrl": "https://placehold.co/600x800?text=Demo+Profile",
+      "email": "demo@example.com",
+      "phone": "+1 202 555 0100",
+      "education": [],
+      "admissions": [],
+      "notableCases": [],
+      "practiceAreas": ["corporate-law"],
+      "status": "published",
+      "displayOrder": 1
+    }
+  ],
+  "cases": [
+    {
+      "slug": "demo-governance-study",
+      "title": "Demo Governance Study — Fictional Example",
+      "category": "corporate-governance",
+      "description": "Fictional public case-study example for local development. This describes no actual client or matter.",
+      "outcomeSummary": "Illustrates the public content layout; no professional outcome is claimed.",
+      "keyDetails": ["Demonstration content only"],
+      "clientIndustry": "Fictional example",
+      "confidential": false,
+      "status": "published",
+      "displayOrder": 1,
+      "featuredPosition": 1
+    }
+  ]
+}
