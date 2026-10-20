@@ -66,6 +66,109 @@ baked into the image; after code changes, rebuild with `docker compose up --buil
 Dependencies are installed from `composer.lock` without development packages.
 Run the test suite locally using `php artisan test`.
 
+## Remote API access with ngrok
+
+The optional [compose.ngrok.yaml](compose.ngrok.yaml) overlay runs the official
+ngrok agent beside the API. You need an ngrok account, its authtoken, and the
+assigned development domain from the [ngrok dashboard](https://dashboard.ngrok.com/).
+The image and authentication mechanism follow [ngrok's Docker setup](https://ngrok.com/download/docker).
+
+### Docker setup
+
+1. Complete the Docker setup above, including `.env.docker` and a stable `APP_KEY`.
+2. Run `cp .env.ngrok.example .env.ngrok`. Set `NGROK_AUTHTOKEN` and set `NGROK_URL`
+   to your full assigned HTTPS URL, for example `https://your-name.ngrok-free.app`.
+   `.env.ngrok` is ignored by Git and excluded from Docker build context.
+3. Set `CORS_ALLOWED_ORIGINS` in `.env.docker` to the exact frontend origins that
+   will call the API, comma-separated, without trailing slashes. This is the
+   frontend's origin, not the API's ngrok URL. Keep `APP_DEBUG=false` when sharing.
+4. Start the stack with the overlay:
+
+```bash
+docker compose --env-file .env.ngrok -f compose.yaml -f compose.ngrok.yaml up --build -d
+docker compose --env-file .env.ngrok -f compose.yaml -f compose.ngrok.yaml logs -f ngrok
+```
+
+The overlay requires nonempty URL/token settings, sets the API's `APP_URL` to the
+public URL, disables debug output, and forwards to Apache on `app:80`. The host
+port remains bound to localhost. An isolated tunnel network gives the ngrok agent
+the fixed IP `172.30.79.2`; only that address is trusted for forwarded client/HTTPS
+headers. If `172.30.79.0/24` conflicts with another local network, change the subnet,
+agent IP, and `TRUSTED_PROXIES` together in the overlay. The local inspection
+feature is disabled (`--inspect=false`) and no inspection port is published.
+
+Use the same Compose options for subsequent lifecycle commands. Stop remote
+access while keeping the API running with:
+
+```bash
+docker compose --env-file .env.ngrok -f compose.yaml -f compose.ngrok.yaml stop ngrok
+```
+
+### Host PHP setup (alternative to Docker)
+
+Install ngrok using its [Linux installation instructions](https://ngrok.com/download/linux).
+Register the authtoken with `ngrok config add-authtoken YOUR_TOKEN`. Update your
+existing backend `.env` (preserve its database settings and key):
+
+```dotenv
+APP_URL=https://your-assigned-domain.ngrok-free.app
+APP_DEBUG=false
+TRUSTED_PROXIES=127.0.0.1,::1
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://your-frontend.example.com
+```
+
+Run the API and the tunnel in separate terminals:
+
+```bash
+php artisan config:clear
+php artisan serve --host=127.0.0.1 --port=8000
+```
+
+```bash
+ngrok http http://127.0.0.1:8000 --url=https://your-assigned-domain.ngrok-free.app --inspect=false
+```
+
+Stop ngrok with Ctrl+C. `TRUSTED_PROXIES` is empty by default; configure only the
+agent's address, not arbitrary internet clients. Proxy resolution runs before
+request auditing, so audit hashes and rate limits use the remote client's IP.
+
+### Connect and verify
+
+Use your actual ngrok URL in these requests:
+
+```bash
+curl -H 'Accept: application/json' https://your-assigned-domain.ngrok-free.app/api/health
+curl -H 'Accept: application/json' https://your-assigned-domain.ngrok-free.app/api/attorneys
+```
+
+Set the sibling `99lawyers` frontend's `.env` to:
+
+```dotenv
+VITE_API_BASE_URL=https://your-assigned-domain.ngrok-free.app/api
+```
+
+Restart its Vite server after changing this value. The `/api` suffix is required
+by its existing inquiry adapter. Its other in-memory repositories still need API
+adapters before those pages use remote data. Browser requests can include
+`ngrok-skip-browser-warning: 1` if they encounter ngrok's free-tier interstitial;
+this is a client request header, as described in [ngrok's documentation](https://ngrok.com/docs/pricing-limits/free-plan-limits).
+The backend's existing CORS configuration accepts it. For example:
+
+```javascript
+const response = await fetch('https://your-assigned-domain.ngrok-free.app/api/attorneys', {
+  headers: { Accept: 'application/json', 'ngrok-skip-browser-warning': '1' },
+});
+const page = await response.json();
+```
+
+Troubleshooting: an ngrok upstream error means the local API is unavailable; check
+local `/api/health` first. HTTP 500 can indicate missing migrations because request
+auditing requires the database. For CORS errors, check the frontend origin and clear
+Laravel's configuration cache/recreate the container. HTTPS pagination links require
+the trusted proxy settings above. The tunnel exposes the running application;
+normal endpoint authorization and rate limits still apply. Use test inquiry data
+while sharing, since consultation requests can enqueue real notifications.
+
 ## Project contents
 
 - `app/`, `routes/`, `database/`, and `config/` are the active Laravel backend.
