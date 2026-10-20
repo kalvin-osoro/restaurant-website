@@ -1,6 +1,7 @@
 /vendor
 /.env
 /.env.docker
+/.env.ngrok
 /storage/*.key
 /storage/logs/*
 !/storage/logs/.gitignore
