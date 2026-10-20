@@ -1,0 +1,34 @@
+# Opt-in overlay: docker compose --env-file .env.ngrok -f compose.yaml -f compose.ngrok.yaml up -d
+services:
+  app:
+    environment:
+      APP_DEBUG: "false"
+      APP_URL: ${NGROK_URL:?Set NGROK_URL in .env.ngrok}
+      TRUSTED_PROXIES: 172.30.79.2
+    networks:
+      default: {}
+      tunnel: {}
+
+  ngrok:
+    image: ngrok/ngrok:3
+    command:
+      - http
+      - http://app:80
+      - --url=${NGROK_URL:?Set NGROK_URL in .env.ngrok}
+      - --inspect=false
+      - --log=stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Set NGROK_AUTHTOKEN in .env.ngrok}
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      tunnel:
+        ipv4_address: 172.30.79.2
+
+networks:
+  tunnel:
+    ipam:
+      config:
+        - subnet: 172.30.79.0/24
