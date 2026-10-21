@@ -6,6 +6,9 @@ This is an API-first Laravel 12 project. The starter endpoint is `GET /api/healt
 
 ## Local setup
 
+Use PHP 8.4.1 or newer for the current `composer.lock`; its locked Symfony 8
+packages cannot run on PHP 8.2/8.3. The Docker image uses PHP 8.4 to match.
+
 ```bash
 composer install
 cp .env.example .env
@@ -92,7 +95,8 @@ docker compose --env-file .env.ngrok -f compose.yaml -f compose.ngrok.yaml logs 
 The overlay requires nonempty URL/token settings, sets the API's `APP_URL` to the
 public URL, disables debug output, and forwards to Apache on `app:80`. The host
 port remains bound to localhost. An isolated tunnel network gives the ngrok agent
-the fixed IP `172.30.79.2`; only that address is trusted for forwarded client/HTTPS
+the fixed IP `172.30.79.2` and the API `172.30.79.3`, preventing address collisions;
+only the agent's address is trusted for forwarded client/HTTPS
 headers. If `172.30.79.0/24` conflicts with another local network, change the subnet,
 agent IP, and `TRUSTED_PROXIES` together in the overlay. The local inspection
 feature is disabled (`--inspect=false`) and no inspection port is published.

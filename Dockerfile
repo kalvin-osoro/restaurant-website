@@ -1,4 +1,5 @@
-FROM php:8.3-apache-bookworm
+# The locked Symfony 8 dependencies require PHP >= 8.4.1.
+FROM php:8.4-apache-bookworm
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libonig-dev libsqlite3-dev unzip \
