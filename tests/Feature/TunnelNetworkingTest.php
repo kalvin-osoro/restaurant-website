@@ -18,8 +18,8 @@ class TunnelNetworkingTest extends TestCase
                 'X-Forwarded-For' => '198.51.100.10',
                 'X-Forwarded-Proto' => 'https',
                 'X-Forwarded-Host' => 'example.ngrok-free.app',
-            ])->getJson('/api/attorneys')->assertOk()
-            ->assertJsonPath('links.first', 'https://example.ngrok-free.app/api/attorneys?perPage=20&page=1');
+            ])->getJson('/api/v1/attorneys')->assertOk()
+            ->assertJsonPath('links.first', 'https://example.ngrok-free.app/api/v1/attorneys?perPage=20&page=1');
 
         $this->assertDatabaseHas('tbl_request_logs', [
             'ip_hash' => hash_hmac('sha256', '198.51.100.10', config('app.key')),
@@ -34,8 +34,8 @@ class TunnelNetworkingTest extends TestCase
             ->withHeaders([
                 'X-Forwarded-For' => '198.51.100.10', 'X-Forwarded-Proto' => 'https',
                 'X-Forwarded-Host' => 'spoofed.example.com',
-            ])->getJson('http://local-api.test/api/attorneys')->assertOk()
-            ->assertJsonPath('links.first', 'http://local-api.test/api/attorneys?perPage=20&page=1');
+            ])->getJson('http://local-api.test/api/v1/attorneys')->assertOk()
+            ->assertJsonPath('links.first', 'http://local-api.test/api/v1/attorneys?perPage=20&page=1');
         $this->assertDatabaseHas('tbl_request_logs', [
             'ip_hash' => hash_hmac('sha256', '203.0.113.10', config('app.key')),
         ]);
@@ -48,7 +48,7 @@ class TunnelNetworkingTest extends TestCase
             'Origin' => 'https://frontend.example.com',
             'Access-Control-Request-Method' => 'POST',
             'Access-Control-Request-Headers' => 'content-type,ngrok-skip-browser-warning',
-        ])->options('/api/consultations')->assertNoContent()
+        ])->options('/api/v1/consultations')->assertNoContent()
             ->assertHeader('Access-Control-Allow-Origin', 'https://frontend.example.com')
             ->assertHeader('Access-Control-Allow-Headers', 'content-type,ngrok-skip-browser-warning');
         $this->assertSame(0, DB::table('consultations')->count());
@@ -59,7 +59,7 @@ class TunnelNetworkingTest extends TestCase
     {
         config(['cors.allowed_origins' => ['https://frontend.example.com']]);
         $response = $this->withHeaders(['Origin' => 'https://other.example.com'])
-            ->getJson('/api/health')->assertOk();
+            ->getJson('/api/v1/health')->assertOk();
         // A single configured origin may be sent unconditionally; the browser
         // denies access because it does not match the requesting Origin.
         $this->assertNotSame('https://other.example.com', $response->headers->get('Access-Control-Allow-Origin'));

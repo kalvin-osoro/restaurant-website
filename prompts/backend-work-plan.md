@@ -16,7 +16,7 @@ This document is an implementation plan, not authorization to execute every phas
 
 | Area | Current implementation | Backend gap / frontend dependency |
 | --- | --- | --- |
-| Consultation submissions | `ApiInquiryRepository` calls `POST /api/consultations` | Implemented; operational configuration and selected integration details remain |
+| Consultation submissions | `ApiInquiryRepository` calls `POST /api/v1/consultations` | Implemented; operational configuration and selected integration details remain |
 | Attorneys | `InMemoryAttorneyRepository` uses `SEED_ATTORNEYS` | Team cards and partner modals need persisted profiles |
 | Cases | `InMemoryCaseRepository` uses `SEED_CASES` | Home and Clients views, category filters, and case modals need publishable case studies |
 | Testimonials | `InMemoryTestimonialRepository` uses `SEED_TESTIMONIALS` | Client testimonials need persisted, approved publication content |
@@ -79,6 +79,17 @@ intended deployment environment and controlled recipients must be supplied befor
 configuring real delivery and verifying receipt. No real messages were sent and
 no delivery workers were started against the local database during this work.
 
+## Our Team API follow-up — 19 October 2026
+
+Reviewed the sibling frontend's TeamView, PartnerModal, and Attorney contract.
+Added `GET /api/v1/team` and `GET /api/v1/team/{slug}` using the existing attorney
+application/repository/Resource flow. Responses include persisted image URLs,
+biographies, practice areas, and modal fields. Added validated role filtering
+(also available on `/api/v1/attorneys`), preserving it across pagination links.
+Team endpoint tests cover response fields, fresh image/biography updates,
+publication and archive rules, filters, display ordering, pagination, empty
+collections, and mandatory audit records. Frontend adapter wiring remains open.
+
 ## Phase 0 — Resolve existing integration and operational gaps
 
 - [x] Confirm database access and run outstanding migrations. Completed 17 October 2026 against the configured local MySQL database; the subsequent cache-lock migration is also applied (five migrations total).
@@ -104,9 +115,9 @@ Acceptance: both inquiry entry points submit valid categories and phone numbers;
 
 | Method | Proposed endpoint | Behavior |
 | --- | --- | --- |
-| GET | `/api/attorneys` | Published profiles, ordered; optional validated `q` and `practiceArea` filters |
-| GET | `/api/attorneys/{slug}` | Published profile; return 404 for absent, draft, or archived profiles |
-| GET | `/api/practice-areas` | Public practice areas for filtering and display |
+| GET | `/api/v1/attorneys` | Published profiles, ordered; optional validated `q` and `practiceArea` filters |
+| GET | `/api/v1/attorneys/{slug}` | Published profile; return 404 for absent, draft, or archived profiles |
+| GET | `/api/v1/practice-areas` | Public practice areas for filtering and display |
 
 - [x] Use API Resources to explicitly expose frontend fields in camelCase, matching `Attorney` in `Entities.ts`.
 - [x] Use `{ "data": [...] }` for lists and `{ "data": {...} }` for detail responses. Add `links` and `meta` when paginated; set a maximum page size and stable ordering.
@@ -126,7 +137,7 @@ Acceptance: changing a published database profile updates the frontend; drafts n
 ## Phase 2 — Offices and contact information
 
 - [ ] Create offices with public slug, city, name, address lines, suite, postal code, public phone/email, hours, coordinates, publication state, headquarters flag, and display order.
-- [ ] Add `GET /api/offices` and `GET /api/offices/{slug}`, with explicit Resources matching `OfficeLocation`.
+- [ ] Add `GET /api/v1/offices` and `GET /api/v1/offices/{slug}`, with explicit Resources matching `OfficeLocation`.
 - [ ] Implement `ApiOfficeRepository`; replace frontend assumptions about `new-york`/`london` and remove fictional address fallbacks. Use headquarters/display order and render available offices.
 - [ ] If preferred office selection is introduced, persist a validated office relationship in consultations. Existing records need a migration strategy before converting the current optional string to a foreign key.
 
@@ -136,7 +147,7 @@ Acceptance: contact details come from published records; zero, one, or multiple 
 
 - [x] Create case-study categories and case studies covering the existing `CaseResolution` fields, public slug, publication state, confidentiality flag, display order, and featured position.
 - [x] Store only approved public summaries in this module. It is a marketing case-study system, not a repository for legal case files.
-- [x] Add `GET /api/cases`, `GET /api/cases/{slug}`, and `GET /api/case-categories`. Validate category filters and apply stable ordering/pagination.
+- [x] Add `GET /api/v1/cases`, `GET /api/v1/cases/{slug}`, and `GET /api/v1/case-categories`. Validate category filters and apply stable ordering/pagination.
 - [x] Public queries must require published status AND `confidential = false`, including direct detail lookups. Resources must not expose internal notes or unapproved material.
 - [ ] Implement `ApiCaseRepository`; replace fixed featured case IDs and hardcoded category tabs with API content. The frontend currently omits `Corporate Governance` from its tabs even though the domain supports it.
 - [ ] Add a server-defined featured order; render layouts safely when fewer than four featured studies exist. Do not silently omit additional records or categories.
@@ -147,7 +158,7 @@ Acceptance: approved public cases render on Home/Clients and in modals; confiden
 
 - [ ] Persist testimonials matching `ClientTestimonial`, plus approval/publication state and display order.
 - [ ] Persist client logos with public slug, name, accessible alternate text, image URL, publication approval, and display order.
-- [ ] Add published-only `GET /api/testimonials` and `GET /api/client-logos` endpoints with explicit Resources.
+- [ ] Add published-only `GET /api/v1/testimonials` and `GET /api/v1/client-logos` endpoints with explicit Resources.
 - [ ] Add a logo entity, repository contract, use case, and API adapter; replace direct `CLIENT_LOGOS` imports. Replace the testimonial in-memory adapter too.
 - [ ] Record approval for published quotes and brand assets before enabling them in production.
 

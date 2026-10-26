@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ListAttorneysRequest extends FormRequest
 {
@@ -13,6 +14,7 @@ class ListAttorneysRequest extends FormRequest
         return [
             'q' => ['sometimes', 'required', 'string', 'max:100'],
             'practiceArea' => ['sometimes', 'required', 'string', 'max:100'],
+            'role' => ['sometimes', 'required', 'string', Rule::in(['Managing Partner', 'Senior Partner', 'Partner', 'Of Counsel'])],
             'page' => ['sometimes', 'integer', 'min:1', 'max:100000'],
             'perPage' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ];
