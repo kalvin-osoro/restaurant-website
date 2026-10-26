@@ -413,5 +413,4 @@ remain in their standard Laravel folders. Register application providers in
 `bootstrap/providers.php`. The HTTP API and database table names are unchanged.
 
 **Todo**
-accelerate feature development.
-payment and case logs implelemtation
+
