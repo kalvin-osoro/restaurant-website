@@ -89,4 +89,33 @@ class ContentWriteTest extends TestCase
         $this->postJson('/api/v1/practice-areas', ['slug' => 'law', 'name' => 'Law'])->assertCreated();
         $this->postJson('/api/v1/practice-areas', ['slug' => 'other-law', 'name' => 'Law'])->assertUnprocessable()->assertJsonValidationErrors('name');
     }
+    public function test_each_endpoint_accepts_one_record_and_rejects_bulk_or_other_resource_payloads(): void
+    {
+        $this->credentials();
+        $profile = $this->profile();
+        $profile['practiceAreas'] = [];
+        foreach (['team', 'attorneys'] as $path) {
+            $this->postJson('/api/v1/'.$path, [$profile])->assertUnprocessable();
+            $this->postJson('/api/v1/'.$path, ['attorneys' => [$profile]])->assertUnprocessable();
+        }
+        $this->postJson('/api/v1/cases', $profile)->assertUnprocessable();
+        $this->postJson('/api/v1/practice-areas', [['slug' => 'law', 'name' => 'Law']])->assertUnprocessable();
+        $this->postJson('/api/v1/case-categories', ['caseCategories' => [['slug' => 'governance', 'name' => 'Corporate Governance']]])->assertUnprocessable();
+        $this->assertDatabaseCount('attorneys', 0);
+        $this->assertDatabaseCount('case_studies', 0);
+        $this->assertDatabaseCount('practice_areas', 0);
+        $this->assertDatabaseCount('case_categories', 0);
+
+        foreach (['team', 'attorneys'] as $path) {
+            $profile['slug'] = $path.'-partner';
+            $this->postJson('/api/v1/'.$path, $profile)->assertCreated();
+            $this->getJson('/api/v1/'.$path.'/'.$profile['slug'])->assertNotFound();
+            $profile['status'] = 'published';
+            $this->postJson('/api/v1/'.$path.'/'.$profile['slug'], $profile)->assertOk();
+            $this->getJson('/api/v1/'.$path.'/'.$profile['slug'])->assertOk();
+            unset($profile['status']);
+        }
+        $this->assertDatabaseCount('attorneys', 2);
+        $this->assertDatabaseCount('case_studies', 0);
+    }
 }

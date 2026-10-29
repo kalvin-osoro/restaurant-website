@@ -520,3 +520,13 @@ its relationships are transactional. Unrecognized input fields are not persisted
 Omitted `status` defaults to `draft`; cases also default to `confidential=true`.
 To expose a case publicly, explicitly send both `status: "published"` and
 `confidential: false`. Taxonomy GETs show only records used by public content.
+
+Each content POST route is declared explicitly in `routes/api.php` and uses a
+resource-specific controller and FormRequest: Team, Attorney, CaseStudy,
+PracticeArea, or CaseCategory. Every request accepts one JSON object for that
+resource; bulk arrays/import envelopes are rejected. Team and attorneys use the
+same attorney-profile records. For example, `POST /api/v1/team` creates one team
+profile, `POST /api/v1/attorneys` creates one attorney profile, and
+`POST /api/v1/cases` creates one case study. Published records are then available
+to the frontend through their corresponding GET endpoints. Shared persistence
+and CLI imports still use the existing application action and repository contract.

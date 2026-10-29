@@ -8,13 +8,13 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
-class ContentWriteController extends Controller
+abstract class ContentWriteController extends Controller
 {
-    public function store(SaveContentRequest $request, SaveContent $save): JsonResponse
+    protected function persist(SaveContentRequest $request, SaveContent $save): JsonResponse
     {
         $record = $request->validated();
         try {
-            $save->execute($request->route('contentType'), $record);
+            $save->execute($request->contentType(), $record);
         } catch (\InvalidArgumentException $error) {
             throw ValidationException::withMessages(['relationships' => $error->getMessage()]);
         } catch (UniqueConstraintViolationException) {

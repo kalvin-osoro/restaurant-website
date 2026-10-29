@@ -6,13 +6,15 @@ use App\Application\WebsiteContent\ContentRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class SaveContentRequest extends FormRequest
+abstract class SaveContentRequest extends FormRequest
 {
+    abstract public function contentType(): string;
+
     public function authorize(): bool { return true; }
 
     public function rules(): array
     {
-        $type = $this->route('contentType');
+        $type = $this->contentType();
         $prefix = $type.'.*.';
         $rules = [];
         foreach (ContentRules::batch() as $key => $value) {

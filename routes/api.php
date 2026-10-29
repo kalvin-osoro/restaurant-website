@@ -22,11 +22,15 @@ Route::middleware('throttle:60,1')->group(function () {
 });
 
 Route::middleware([\App\Http\Middleware\AuthorizeContentWrite::class, 'throttle:30,1'])->group(function () {
-    foreach (['team' => 'attorneys', 'attorneys' => 'attorneys', 'practice-areas' => 'practiceAreas', 'cases' => 'cases', 'case-categories' => 'caseCategories'] as $path => $type) {
-        Route::post('/'.$path, [\App\Http\Controllers\ContentWriteController::class, 'store'])->defaults('contentType', $type);
-        if (in_array($path, ['team', 'attorneys', 'cases'], true)) {
-            Route::post('/'.$path.'/{slug}', [\App\Http\Controllers\ContentWriteController::class, 'store'])
-                ->where('slug', '[a-z0-9]+(?:-[a-z0-9]+)*')->defaults('contentType', $type);
-        }
-    }
+    Route::post('/team', [\App\Http\Controllers\TeamWriteController::class, 'store'])->name('api.team.store');
+    Route::post('/team/{slug}', [\App\Http\Controllers\TeamWriteController::class, 'store'])
+        ->where('slug', '[a-z0-9]+(?:-[a-z0-9]+)*')->name('api.team.replace');
+    Route::post('/attorneys', [\App\Http\Controllers\AttorneyWriteController::class, 'store'])->name('api.attorneys.store');
+    Route::post('/attorneys/{slug}', [\App\Http\Controllers\AttorneyWriteController::class, 'store'])
+        ->where('slug', '[a-z0-9]+(?:-[a-z0-9]+)*')->name('api.attorneys.replace');
+    Route::post('/cases', [\App\Http\Controllers\CaseStudyWriteController::class, 'store'])->name('api.cases.store');
+    Route::post('/cases/{slug}', [\App\Http\Controllers\CaseStudyWriteController::class, 'store'])
+        ->where('slug', '[a-z0-9]+(?:-[a-z0-9]+)*')->name('api.cases.replace');
+    Route::post('/practice-areas', [\App\Http\Controllers\PracticeAreaWriteController::class, 'store'])->name('api.practice-areas.store');
+    Route::post('/case-categories', [\App\Http\Controllers\CaseCategoryWriteController::class, 'store'])->name('api.case-categories.store');
 });
