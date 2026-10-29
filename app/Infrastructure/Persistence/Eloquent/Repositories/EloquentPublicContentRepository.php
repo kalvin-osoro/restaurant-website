@@ -12,6 +12,9 @@ final class EloquentPublicContentRepository implements PublicContentRepository
     public function attorneys(array $filters): ContentPage
     {
         $query = Attorney::publiclyVisible()->with('practiceAreas');
+        if (isset($filters['role'])) {
+            $query->where('role', $filters['role']);
+        }
         if (isset($filters['q'])) {
             // Use an explicit escape character, consistently on SQLite and MySQL.
             $term = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $filters['q']).'%';

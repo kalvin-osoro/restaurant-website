@@ -47,7 +47,7 @@ class PublicContentController extends Controller
     private function page(Request $request, ContentPage $page, string $resource): JsonResponse
     {
         $lastPage = max(1, (int) ceil($page->total / $page->perPage));
-        $url = fn (int $number) => $request->url().'?'.http_build_query(array_merge($request->only(['q', 'practiceArea', 'category', 'featured']), ['perPage' => $page->perPage, 'page' => $number]));
+        $url = fn (int $number) => $request->url().'?'.http_build_query(array_merge($request->only(['q', 'practiceArea', 'role', 'category', 'featured']), ['perPage' => $page->perPage, 'page' => $number]));
         return response()->json([
             'data' => $resource::collection($page->items)->resolve($request),
             'links' => ['first' => $url(1), 'last' => $url($lastPage), 'prev' => $page->page > 1 ? $url($page->page - 1) : null, 'next' => $page->page < $lastPage ? $url($page->page + 1) : null],

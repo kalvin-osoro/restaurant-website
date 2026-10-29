@@ -69,7 +69,7 @@ class NotificationOperationsTest extends TestCase
         Mail::fake();
         Http::preventStrayRequests();
         Http::fake(['api.twilio.com/*' => Http::response(['sid' => 'SMtest'], 201)]);
-        $this->postJson('/api/consultations', [
+        $this->postJson('/api/v1/consultations', [
             'fullName' => 'Controlled Test', 'email' => 'test@example.com', 'phone' => '+254712345678',
             'natureOfInquiry' => 'General Consultation', 'details' => 'Private details must not be delivered.',
         ])->assertCreated();

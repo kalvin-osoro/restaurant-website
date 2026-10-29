@@ -2,7 +2,7 @@
 
 Placeholder name for the Laravel backend that will provide APIs and administration for the sibling `99lawyers` frontend. Replace “Lexora Legal” when the firm name is chosen.
 
-This is an API-first Laravel 12 project. The starter endpoint is `GET /api/health`; add application endpoints and authentication as the backend is developed.
+This is an API-first Laravel 12 project. The starter endpoint is `GET /api/v1/health`; add application endpoints and authentication as the backend is developed.
 
 ## Local setup
 
@@ -39,7 +39,7 @@ host-based SMTP.
 
 ```bash
 docker compose up --build -d
-curl http://localhost:8000/api/health
+curl http://localhost:8000/api/v1/health
 docker compose ps
 docker compose logs -f app queue scheduler
 ```
@@ -141,17 +141,17 @@ request auditing, so audit hashes and rate limits use the remote client's IP.
 Use your actual ngrok URL in these requests:
 
 ```bash
-curl -H 'Accept: application/json' https://your-assigned-domain.ngrok-free.app/api/health
-curl -H 'Accept: application/json' https://your-assigned-domain.ngrok-free.app/api/attorneys
+curl -H 'Accept: application/json' https://your-assigned-domain.ngrok-free.app/api/v1/health
+curl -H 'Accept: application/json' https://your-assigned-domain.ngrok-free.app/api/v1/attorneys
 ```
 
 Set the sibling `99lawyers` frontend's `.env` to:
 
 ```dotenv
-VITE_API_BASE_URL=https://your-assigned-domain.ngrok-free.app/api
+VITE_API_BASE_URL=https://your-assigned-domain.ngrok-free.app/api/v1
 ```
 
-Restart its Vite server after changing this value. The `/api` suffix is required
+Restart its Vite server after changing this value. The `/api/v1` suffix is required
 by its existing inquiry adapter. Its other in-memory repositories still need API
 adapters before those pages use remote data. Browser requests can include
 `ngrok-skip-browser-warning: 1` if they encounter ngrok's free-tier interstitial;
@@ -159,14 +159,14 @@ this is a client request header, as described in [ngrok's documentation](https:/
 The backend's existing CORS configuration accepts it. For example:
 
 ```javascript
-const response = await fetch('https://your-assigned-domain.ngrok-free.app/api/attorneys', {
+const response = await fetch('https://your-assigned-domain.ngrok-free.app/api/v1/attorneys', {
   headers: { Accept: 'application/json', 'ngrok-skip-browser-warning': '1' },
 });
 const page = await response.json();
 ```
 
 Troubleshooting: an ngrok upstream error means the local API is unavailable; check
-local `/api/health` first. HTTP 500 can indicate missing migrations because request
+local `/api/v1/health` first. HTTP 500 can indicate missing migrations because request
 auditing requires the database. For CORS errors, check the frontend origin and clear
 Laravel's configuration cache/recreate the container. HTTPS pagination links require
 the trusted proxy settings above. The tunnel exposes the running application;
@@ -182,17 +182,68 @@ while sharing, since consultation requests can enqueue real notifications.
 
 ## Public attorney profiles and case studies
 
+### Our Team page endpoint
+
+`GET /api/v1/team` serves the published profiles needed by `99lawyers`' Team cards
+and `PartnerModal`. `GET /api/v1/team/{slug}` serves a single published profile;
+missing, draft, and archived profiles return 404. Both reuse the attorney
+repository, application action, and public Resource used by `/api/v1/attorneys`.
+
+```bash
+curl 'http://localhost:8000/api/v1/team?perPage=20'
+curl 'http://localhost:8000/api/v1/team?role=Senior%20Partner'
+curl 'http://localhost:8000/api/v1/team/demo-partner'
+```
+
+The detail response has this shape (fictional example):
+
+```json
+{
+  "data": {
+    "id": "demo-partner",
+    "name": "Demo Partner — Fictional Profile",
+    "role": "Partner",
+    "bio": "Reviewed public biography.",
+    "practiceAreas": ["Corporate Law"],
+    "imageUrl": "https://example.com/partners/demo.jpg",
+    "email": "demo@example.com",
+    "phone": "+1 202 555 0100",
+    "education": [],
+    "admissions": [],
+    "notableCases": []
+  }
+}
+```
+
+The list returns the same profile fields in `data`, plus pagination `links` and
+`meta`. Follow `links.next` until null to render every profile. Optional filters
+are `q`, `practiceArea`, and `role`; valid roles are `Managing Partner`,
+`Senior Partner`, `Partner`, and `Of Counsel`. Role filters also work on
+`/api/v1/attorneys`. Invalid filters return 422. Profiles sort by display order then
+slug and are read fresh from the database. The shared public-read rate limit and
+mandatory request auditing apply to these routes too.
+
+Images are served by the URL stored in `image_url` and exposed as `imageUrl`;
+the API does not embed image bytes. Use a reachable HTTPS image host or a public
+storage URL. For Laravel-managed public files, run `php artisan storage:link`
+and configure `APP_URL` to the backend's public origin. Maintain profiles through
+the reviewed JSON importer below; no new migration is needed for the Team routes.
+The sibling frontend can consume this endpoint through its attorney repository;
+its existing in-memory adapter has not been changed by this backend endpoint work.
+
+### Directory and case-study APIs
+
 Run `php artisan migrate` to create the content tables. These endpoints return
 database content and remain under the mandatory HTTP audit middleware:
 
 | Endpoint | Filters / response |
 | --- | --- |
-| `GET /api/attorneys` | `q` (literal name/biography search), `practiceArea` (slug or name), `page`, `perPage` |
-| `GET /api/attorneys/{slug}` | Published profile or 404 |
-| `GET /api/practice-areas` | Ordered areas used by published attorneys |
-| `GET /api/cases` | `category` (slug or name), `featured=1` or `0`, `page`, `perPage` |
-| `GET /api/cases/{slug}` | Published, non-confidential study or 404 |
-| `GET /api/case-categories` | Ordered categories used by public studies, including Corporate Governance |
+| `GET /api/v1/attorneys` | `q` (literal name/biography search), `practiceArea` (slug or name), `page`, `perPage` |
+| `GET /api/v1/attorneys/{slug}` | Published profile or 404 |
+| `GET /api/v1/practice-areas` | Ordered areas used by published attorneys |
+| `GET /api/v1/cases` | `category` (slug or name), `featured=1` or `0`, `page`, `perPage` |
+| `GET /api/v1/cases/{slug}` | Published, non-confidential study or 404 |
+| `GET /api/v1/case-categories` | Ordered categories used by public studies, including Corporate Governance |
 
 Lists return `{"data": [...], "links": {...}, "meta": {...}}`; detail endpoints
 return `{"data": {...}}`. Taxonomy lists return `{"data": [{"id": "slug", "name": "Display name"}]}`.
@@ -210,8 +261,7 @@ Internal numeric IDs, publication states, and timestamps are not serialized.
 All public attorney queries require `published`; all public case queries also
 require `confidential=false`. Hidden records return 404 even by direct slug.
 
-Maintain content through a trusted CLI import until protected administration is
-implemented. Review all biographies, qualifications, contact details, and case
+Maintain content through the protected POST endpoints below or the trusted CLI import. Review all biographies, qualifications, contact details, and case
 summaries before setting `status` to `published`. This module stores marketing
 summaries, not client files or internal legal matter notes.
 
@@ -243,7 +293,7 @@ remain frontend integration work. Do not ship confidential frontend case fixture
 
 ## Consultation inquiries
 
-Both frontend inquiry forms use `POST /api/consultations`. Configure the sibling
+Both frontend inquiry forms use `POST /api/v1/consultations`. Configure the sibling
 frontend's `VITE_API_BASE_URL` (see its `.env.example`), and allow its origin through
 `CORS_ALLOWED_ORIGINS`. The JSON fields are `fullName`, optional `organization`,
 `email`, `phone` (E.164 international format such as `+254712345678`),
@@ -339,7 +389,7 @@ credentials in the intended environment):
 3. Start the queue worker and one scheduler using Compose or Supervisor. Confirm
    both processes remain running with `docker compose ps` or `supervisorctl status`.
 4. Submit one inquiry with a controlled inbox and E.164 phone number through
-   `POST /api/consultations`. Use harmless test details. The regular scheduler
+   `POST /api/v1/consultations`. Use harmless test details. The regular scheduler
    should queue its outbox records within a minute.
 5. Use the returned reference to locate its consultation and notification logs
    through trusted database access. Confirm each enabled channel transitions to
@@ -414,3 +464,69 @@ remain in their standard Laravel folders. Register application providers in
 
 **Todo**
 
+
+## Persisting website content over HTTP
+
+All application API routes use `/api/v1`; the previous `/api` URLs are retired.
+Laravel's infrastructure health probe remains `/up`. Health checks have no
+persisted content and remain GET-only. Consultation submissions remain POST-only.
+Update the frontend `VITE_API_BASE_URL` to `http://localhost:8000/api/v1` or your
+public HTTPS origin followed by `/api/v1`, then restart/rebuild the frontend.
+
+| POST path (relative to `/api/v1`) | Operation |
+| --- | --- |
+| `/team` or `/attorneys` | Create an attorney and sync practice-area relationships |
+| `/team/{slug}` or `/attorneys/{slug}` | Replace an existing attorney's complete content |
+| `/practice-areas` | Create a practice area |
+| `/cases` | Create a case study linked to an existing category |
+| `/cases/{slug}` | Replace an existing case study's complete content |
+| `/case-categories` | Create a case category |
+
+Writes require `Authorization: Bearer <CONTENT_WRITE_TOKEN>` and are limited to
+30 requests per minute per client. Configure a cryptographically random token of
+at least 32 characters in `.env`, or `.env.docker` for Compose; generate one with
+`openssl rand -hex 32`. Keep this credential on a trusted server or in an operator's
+API client, never in `VITE_*` variables or browser code. Public GET requests need
+no token. An unset/short configured token disables writes with 503; missing/invalid
+credentials return 401. Run `php artisan config:clear` after host configuration
+changes, or rebuild/recreate the Compose app to pick up code and environment changes.
+
+Request JSON uses the same camelCase record fields as the reviewed import format
+above, but send **one record** directly, without the top-level import arrays.
+`practiceAreas` on an attorney contains existing practice-area **slugs**;
+`category` on a case contains an existing category **slug**. Create those taxonomy
+records first. A profile `imageUrl` is an HTTP(S) URL to a separately hosted image;
+these endpoints do not accept multipart image uploads.
+
+```bash
+curl -X POST "$API_BASE_URL/practice-areas" \
+  -H "Authorization: Bearer $CONTENT_WRITE_TOKEN" \
+  -H 'Accept: application/json' -H 'Content-Type: application/json' \
+  --data '{"slug":"corporate-law","name":"Corporate Law"}'
+
+# partner.json contains a complete attorney record in the documented import format.
+curl -X POST "$API_BASE_URL/team" \
+  -H "Authorization: Bearer $CONTENT_WRITE_TOKEN" \
+  -H 'Accept: application/json' -H 'Content-Type: application/json' \
+  --data-binary @partner.json
+```
+
+Set `API_BASE_URL` to your origin plus `/api/v1`. Successful creation returns 201
+with `{"data":{"id":"the-slug"}}`; replacement returns 200 in the same shape.
+Collection POSTs reject duplicate slugs/names with 422. Detail POSTs require an
+existing slug matching the body and a complete record; they are not partial patches.
+Invalid fields/references return 422 without persisting the record. Each write and
+its relationships are transactional. Unrecognized input fields are not persisted.
+Omitted `status` defaults to `draft`; cases also default to `confidential=true`.
+To expose a case publicly, explicitly send both `status: "published"` and
+`confidential: false`. Taxonomy GETs show only records used by public content.
+
+Each content POST route is declared explicitly in `routes/api.php` and uses a
+resource-specific controller and FormRequest: Team, Attorney, CaseStudy,
+PracticeArea, or CaseCategory. Every request accepts one JSON object for that
+resource; bulk arrays/import envelopes are rejected. Team and attorneys use the
+same attorney-profile records. For example, `POST /api/v1/team` creates one team
+profile, `POST /api/v1/attorneys` creates one attorney profile, and
+`POST /api/v1/cases` creates one case study. Published records are then available
+to the frontend through their corresponding GET endpoints. Shared persistence
+and CLI imports still use the existing application action and repository contract.
