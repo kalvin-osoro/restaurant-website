@@ -12,7 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\TrustProxies::class,
             \App\Http\Middleware\LogRequests::class,
         ]);
-        $middleware->alias(['admin' => EnsureAdmin::class]);
+        $middleware->redirectGuestsTo(fn () => route('login'));
+        $middleware->alias(['admin' => EnsureAdmin::class, 'oauth.scope' => \App\Http\Middleware\RequireOAuthScope::class]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {})
+    ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->shouldRenderJsonWhen(fn ($request, $exception) => ($request->is('api/*') && !$request->is('api/v1/oauth/authorize')) || $request->expectsJson());
+    })
     ->create();
