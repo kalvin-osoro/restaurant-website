@@ -482,13 +482,15 @@ public HTTPS origin followed by `/api/v1`, then restart/rebuild the frontend.
 | `/cases/{slug}` | Replace an existing case study's complete content |
 | `/case-categories` | Create a case category |
 
-Writes require `Authorization: Bearer <CONTENT_WRITE_TOKEN>` and are limited to
-30 requests per minute per client. Configure a cryptographically random token of
+Writes accept an admin/manager OAuth2 access token or the legacy server-only
+`CONTENT_WRITE_TOKEN` as a bearer credential and are limited to 30 requests per
+minute per client. For the legacy integration credential: Configure a cryptographically random token of
 at least 32 characters in `.env`, or `.env.docker` for Compose; generate one with
 `openssl rand -hex 32`. Keep this credential on a trusted server or in an operator's
 API client, never in `VITE_*` variables or browser code. Public GET requests need
-no token. An unset/short configured token disables writes with 503; missing/invalid
-credentials return 401. Run `php artisan config:clear` after host configuration
+no token. An unset/short configured service token disables that authentication
+path with 503; missing/invalid service credentials return 401. Admin/manager
+access tokens work independently of this service-token setting. Run `php artisan config:clear` after host configuration
 changes, or rebuild/recreate the Compose app to pick up code and environment changes.
 
 Request JSON uses the same camelCase record fields as the reviewed import format
@@ -530,3 +532,119 @@ profile, `POST /api/v1/attorneys` creates one attorney profile, and
 `POST /api/v1/cases` creates one case study. Published records are then available
 to the frontend through their corresponding GET endpoints. Shared persistence
 and CLI imports still use the existing application action and repository contract.
+
+## OAuth2 authentication, roles, and permissions
+
+Authentication uses Laravel Passport's OAuth2 Authorization Code flow with PKCE
+(S256) for browser/mobile clients. Sanctum has been removed. Previous Sanctum
+access tokens no longer authenticate; users must authorize the OAuth2 client.
+The former JSON `POST /api/v1/auth/login` token endpoint has been retired.
+Registration creates an account only; tokens are issued by the OAuth2 server.
+The historical `personal_access_tokens` migration is retained for safe upgrades,
+but its tokens are never accepted. Password and implicit grants stay disabled.
+
+| Role | Permissions |
+| --- | --- |
+| `user` (normal user) | `account.view` |
+| `manager` | `account.view`, `content.write` |
+| `admin` | `account.view`, `content.write`, `users.assign-roles` |
+
+OAuth2 scopes use the same names, but they do not grant roles: protected operations
+require both the token scope and the account permission. Role changes take effect
+on existing access tokens. Public content reads and consultation submissions stay
+public. The server-only `CONTENT_WRITE_TOKEN` still grants content writes only,
+not account access or role assignment; remove it from deployment configuration if
+all integrations have switched to OAuth2.
+
+### Deployment
+
+```bash
+composer install
+php artisan migrate
+php artisan passport:keys
+php artisan users:create admin@example.com --name="Administrator" --role=admin
+php artisan passport:client --public --name="99lawyers" --redirect_uri="http://localhost:3000/auth/callback"
+```
+
+Use your actual frontend callback URL; it must match exactly. Save the printed
+client ID as public frontend configuration, for example `VITE_OAUTH_CLIENT_ID`.
+Public PKCE clients have no client secret. Configure the frontend API base URL as
+before, ending in `/api/v1`. Client registration is a trusted operator action.
+No clients or accounts are seeded automatically. The account command prompts for
+a password rather than accepting it on the command line. Existing `customer` and
+unknown legacy roles migrate to `user`; admins and managers are preserved.
+
+Signing keys are stored in `storage/oauth-private.key` and
+`storage/oauth-public.key`; keep them private, persistent, and shared by all API
+replicas. Do not regenerate keys on each startup. Alternatively provide
+`PASSPORT_PRIVATE_KEY` and `PASSPORT_PUBLIC_KEY` securely as multiline environment
+values. No keys are included in Git or the Docker image. For Compose, rebuild the
+app then run the commands inside the app container as `www-data`, e.g.:
+
+```bash
+docker compose exec --user www-data app php artisan passport:keys
+docker compose exec --user www-data app php artisan passport:client --public --name="99lawyers" --redirect_uri="https://frontend.example/auth/callback"
+```
+
+The existing `app-storage` volume persists the keys. Use HTTPS and set
+`SESSION_SECURE_COOKIE=true` on public deployments, along with the correct
+`APP_URL`, trusted proxies, and allowed frontend CORS origin. Browser login and
+consent use a same-site session with CSRF protection; API access uses bearer tokens.
+
+### Endpoints and frontend flow
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/v1/auth/register` | Public; `name`, lowercase `email`, `password` (12–128 chars), `password_confirmation`; creates `user`, rejects role/permission input |
+| `GET /login`, `POST /login` | Browser login form and CSRF-protected session login; not an access-token endpoint |
+| `POST /logout` | CSRF-protected browser-session logout |
+| `GET /api/v1/oauth/authorize` | OAuth2 authorization and user consent |
+| `POST /api/v1/oauth/authorize` | CSRF-protected consent approval; handled by Passport |
+| `DELETE /api/v1/oauth/authorize` | CSRF-protected consent denial; handled by Passport |
+| `POST /api/v1/oauth/token` | Exchange authorization codes or refresh tokens; public PKCE client requires no client secret |
+| `GET /api/v1/me` | OAuth2 bearer token with `account.view` scope |
+| `POST /api/v1/auth/logout` | Revoke current OAuth2 access token and its associated refresh token |
+| `POST /api/v1/users/{id}/role` | Admin with `users.assign-roles` scope; body `role`: `admin`, `manager`, or `user` |
+
+1. Generate a cryptographically random 43–128-character `code_verifier` and a
+   separate random `state`. Store both temporarily in the frontend session.
+2. Compute `code_challenge = BASE64URL(SHA256(code_verifier))`, without padding.
+3. Navigate the browser to the backend `/api/v1/oauth/authorize` with query
+   parameters `response_type=code`, `client_id`, `redirect_uri`, `state`,
+   `code_challenge`, `code_challenge_method=S256`, and space-separated `scope`.
+   The default scope is `account.view`; content management also requires
+   `content.write`, and the admin role screen also requires `users.assign-roles`.
+4. The backend prompts for login and consent. On the frontend callback, validate
+   `state` against the saved value before accepting any code. Handle denial via
+   the OAuth2 `error` parameter and clear temporary state/verifier afterwards.
+5. Exchange the code using the original verifier:
+
+```bash
+curl -X POST "$API_BASE_URL/oauth/token" \
+  -H 'Accept: application/json' \
+  --data-urlencode 'grant_type=authorization_code' \
+  --data-urlencode "client_id=$OAUTH_CLIENT_ID" \
+  --data-urlencode 'redirect_uri=https://frontend.example/auth/callback' \
+  --data-urlencode "code=$AUTHORIZATION_CODE" \
+  --data-urlencode "code_verifier=$CODE_VERIFIER"
+```
+
+The standard OAuth2 response contains `access_token`, `refresh_token`, `token_type`
+and `expires_in`. Access tokens last one hour; refresh tokens last 30 days. Send
+`Authorization: Bearer <access_token>` on API requests. Store tokens securely;
+never put passwords, signing keys, or tokens in `VITE_*` build configuration.
+Refresh with `grant_type=refresh_token`, `client_id`, and `refresh_token` at the
+same token endpoint. Replace the saved refresh token with the newly returned one.
+Logout revokes the current access/refresh pair; other devices remain signed in.
+To also end the authorization server's browser session, submit its `/logout` form.
+
+Invalid/expired/revoked API tokens return 401, missing scopes or role permissions
+return 403, invalid application input returns 422, and throttling returns 429.
+OAuth2 errors follow Passport's standard OAuth2 response format. Login allows
+five attempts per minute per IP; account/content routes allow 30; OAuth routes
+allow 60. Admins cannot demote themselves. Account roles are excluded from mass
+assignment, and attorney job titles are unrelated to login roles.
+
+Run `php artisan passport:purge --revoked --expired` periodically to prune obsolete
+OAuth2 records. See the official Laravel Passport documentation for the protocol:
+https://laravel.com/docs/12.x/passport#authorization-code-grant-with-pkce

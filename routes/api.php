@@ -21,7 +21,7 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('/case-categories', [$controller, 'caseCategories']);
 });
 
-Route::middleware([\App\Http\Middleware\AuthorizeContentWrite::class, 'throttle:30,1'])->group(function () {
+Route::middleware(['throttle:30,1', \App\Http\Middleware\AuthorizeContentWrite::class])->group(function () {
     Route::post('/team', [\App\Http\Controllers\TeamWriteController::class, 'store'])->name('api.team.store');
     Route::post('/team/{slug}', [\App\Http\Controllers\TeamWriteController::class, 'store'])
         ->where('slug', '[a-z0-9]+(?:-[a-z0-9]+)*')->name('api.team.replace');
@@ -34,3 +34,16 @@ Route::middleware([\App\Http\Middleware\AuthorizeContentWrite::class, 'throttle:
     Route::post('/practice-areas', [\App\Http\Controllers\PracticeAreaWriteController::class, 'store'])->name('api.practice-areas.store');
     Route::post('/case-categories', [\App\Http\Controllers\CaseCategoryWriteController::class, 'store'])->name('api.case-categories.store');
 });
+
+Route::middleware(['throttle:30,1', 'auth:api'])->group(function () {
+    Route::get('/me', [\App\Http\Controllers\AccountController::class, 'show'])
+        ->middleware(['oauth.scope:account.view', 'can:account.view'])->name('api.account.show');
+    Route::post('/users/{user}/role', [\App\Http\Controllers\AccountController::class, 'assignRole'])
+        ->middleware(['oauth.scope:users.assign-roles', 'can:users.assign-roles'])->whereNumber('user')->name('api.users.role');
+});
+
+Route::middleware('throttle:5,1')->group(function () {
+    Route::post('/auth/register', [\App\Http\Controllers\AuthController::class, 'register'])->name('api.auth.register');
+});
+Route::post('/auth/logout', [\App\Http\Controllers\AuthController::class, 'logout'])
+    ->middleware(['throttle:30,1', 'auth:api'])->name('api.auth.logout');
