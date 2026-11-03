@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias(['admin' => EnsureAdmin::class, 'oauth.scope' => \App\Http\Middleware\RequireOAuthScope::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->respond([\App\Http\Responses\ApiExceptionResponse::class, 'render']);
         $exceptions->shouldRenderJsonWhen(fn ($request, $exception) => ($request->is('api/*') && !$request->is('api/v1/oauth/authorize')) || $request->expectsJson());
     })
     ->create();

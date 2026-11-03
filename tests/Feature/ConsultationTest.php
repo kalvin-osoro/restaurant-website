@@ -13,7 +13,7 @@ class ConsultationTest extends TestCase {
     use RefreshDatabase;
     private function payload(): array { return ['fullName' => 'Jane Counsel', 'organization' => 'Example Firm', 'email' => 'jane@example.com', 'phone' => '+254712345678', 'natureOfInquiry' => 'Corporate Representation', 'details' => 'Confidential matter for discussion.']; }
     public function test_booking_is_encrypted_and_creates_durable_notifications(): void {
-        $this->postJson('/api/v1/consultations', $this->payload() + ['status' => 'approved'])->assertCreated()->assertJsonPath('success', true);
+        $this->postJson('/api/v1/consultations', $this->payload() + ['status' => 'approved'])->assertCreated()->assertJsonPath('data.success', true);
         $this->assertDatabaseCount('consultations', 1);
         $this->assertDatabaseCount('notification_logs', 2);
         $this->assertSame($this->payload()['details'], Consultation::first()->details);
