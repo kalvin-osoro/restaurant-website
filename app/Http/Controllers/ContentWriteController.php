@@ -20,6 +20,6 @@ abstract class ContentWriteController extends Controller
         } catch (UniqueConstraintViolationException) {
             abort(409, 'A record with this slug or name already exists.');
         }
-        return response()->json(['data' => ['id' => $record['slug']]], $request->route('slug') === null ? 201 : 200);
+        return result($request->route('slug') === null ? 'Content created' : 'Content updated', ['id' => $record['slug']], $request->route('slug') === null ? 201 : 200);
     }
 }

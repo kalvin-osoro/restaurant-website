@@ -35,7 +35,7 @@ class TeamApiTest extends TestCase
         ];
         $this->getJson('/api/v1/team')->assertOk()->assertJson(['data' => [$expected]])
             ->assertJsonCount(count($expected), 'data.0')->assertJsonPath('meta.total', 1);
-        $this->getJson('/api/v1/team/example-partner')->assertOk()->assertExactJson(['data' => $expected]);
+        $this->getJson('/api/v1/team/example-partner')->assertOk()->assertExactJson(['status' => 200, 'response_code' => 0, 'error' => false, 'message' => 'Attorney retrieved', 'data' => $expected]);
         $this->assertDatabaseHas('tbl_request_logs', ['route' => 'api/v1/team', 'status' => 200]);
         $this->assertDatabaseHas('tbl_request_logs', ['route' => 'api/v1/team/{slug}', 'status' => 200]);
     }

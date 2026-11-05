@@ -22,6 +22,6 @@ class AccountController extends Controller
 
     private function account(User $user): JsonResponse
     {
-        return response()->json(['data' => (new \App\Http\Resources\AccountResource($user))->resolve()]);
+        return result('Account retrieved', (new \App\Http\Resources\AccountResource($user))->resolve(), 200, 0, true);
     }
 }

@@ -52,7 +52,11 @@ docker compose ps
 docker compose logs -f app queue scheduler
 ```
 
-Compose runs the API, migrations, queue worker, and scheduler. Container data is
+Compose automatically applies pending migrations before starting the API, queue
+worker, and scheduler, then prints migration status. Already applied migrations
+are skipped. After adding migration files, run `docker compose up --build -d`
+(or the ngrok command below); no manual migration command is needed. Inspect the
+result with `docker compose logs migrate`. Container data is
 separate from the host database and persists in the `app-storage` volume. The API
 is available at `http://localhost:8000`. To change the port, set `APP_PORT` and
 `APP_URL` in `.env.docker`, then run `APP_PORT=8080 docker compose up -d`.

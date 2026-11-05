@@ -22,11 +22,10 @@ class ConsultationController extends Controller
             preferredOffice: $input['preferredOffice'] ?? null,
         ));
 
-        return response()->json([
+        return result('Your consultation inquiry has been received. Our team will contact you to arrange a time.', [
             'success' => true,
             'id' => $receipt->reference,
             'referenceNumber' => $receipt->reference,
-            'message' => 'Your consultation inquiry has been received. Our team will contact you to arrange a time.',
-        ], 201);
+        ], 201, 0, true);
     }
 }

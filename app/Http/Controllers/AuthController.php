@@ -13,7 +13,7 @@ class AuthController extends Controller
     public function register(RegisterAccountRequest $request, AuthenticateAccount $auth): JsonResponse
     {
         $user = $auth->register($request->safe()->only(['name', 'email', 'password']));
-        return response()->json(['data' => (new AccountResource($user))->resolve()], 201);
+        return result('Account registered', (new AccountResource($user))->resolve(), 201, 0, true);
     }
 
     public function logout(Request $request): JsonResponse
@@ -23,6 +23,6 @@ class AuthController extends Controller
             $token->revoke();
             $token->refreshToken()->update(['revoked' => true]);
         });
-        return response()->json(['message' => 'Logged out.']);
+        return result('Logged out.', [], 200, 0, true);
     }
 }

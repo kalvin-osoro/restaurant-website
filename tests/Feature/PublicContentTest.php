@@ -36,7 +36,7 @@ class PublicContentTest extends TestCase
         $profile = $this->attorney('public-partner');
         $area = PracticeArea::create(['slug' => 'corporate-law', 'name' => 'Corporate Law']);
         $profile->practiceAreas()->attach($area);
-        $this->getJson('/api/v1/attorneys/public-partner')->assertOk()->assertExactJson(['data' => [
+        $this->getJson('/api/v1/attorneys/public-partner')->assertOk()->assertExactJson(['status' => 200, 'response_code' => 0, 'error' => false, 'message' => 'Attorney retrieved', 'data' => [
             'id' => 'public-partner', 'name' => 'Example public-partner', 'role' => 'Partner',
             'bio' => 'Approved public biography.', 'practiceAreas' => ['Corporate Law'],
             'imageUrl' => 'https://example.com/profile.jpg', 'email' => 'profile@example.com', 'phone' => '+254712345678',
@@ -58,7 +58,7 @@ class PublicContentTest extends TestCase
         }
         $this->getJson('/api/v1/attorneys')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', 'visible');
         $this->getJson('/api/v1/attorneys?q=Secret')->assertJsonCount(0, 'data');
-        $this->getJson('/api/v1/practice-areas')->assertExactJson(['data' => []]);
+        $this->getJson('/api/v1/practice-areas')->assertExactJson(['status' => 200, 'response_code' => 0, 'error' => false, 'message' => 'Practice areas retrieved', 'data' => []]);
         $this->getJson('/api/v1/attorneys/missing')->assertNotFound();
     }
 
@@ -77,7 +77,7 @@ class PublicContentTest extends TestCase
         }
         $first = $this->getJson('/api/v1/attorneys?perPage=1')->assertJsonPath('data.0.id', 'a')->assertJsonPath('meta.total', 2);
         $this->getJson($first->json('links.next'))->assertJsonPath('data.0.id', 'b')->assertJsonPath('links.next', null);
-        $this->getJson('/api/v1/practice-areas')->assertExactJson(['data' => [['id' => 'litigation', 'name' => 'Litigation']]]);
+        $this->getJson('/api/v1/practice-areas')->assertExactJson(['status' => 200, 'response_code' => 0, 'error' => false, 'message' => 'Practice areas retrieved', 'data' => [['id' => 'litigation', 'name' => 'Litigation']]]);
     }
 
     public function test_confidential_and_unpublished_cases_are_excluded_everywhere(): void
@@ -95,7 +95,7 @@ class PublicContentTest extends TestCase
         $this->getJson('/api/v1/cases')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', 'approved')->assertDontSee('Secret');
         $this->getJson('/api/v1/cases?featured=1')->assertJsonCount(0, 'data');
         $this->getJson('/api/v1/cases?category=private-category')->assertJsonCount(0, 'data');
-        $this->getJson('/api/v1/case-categories')->assertExactJson(['data' => [['id' => 'corporate-governance', 'name' => 'Corporate Governance']]]);
+        $this->getJson('/api/v1/case-categories')->assertExactJson(['status' => 200, 'response_code' => 0, 'error' => false, 'message' => 'Case categories retrieved', 'data' => [['id' => 'corporate-governance', 'name' => 'Corporate Governance']]]);
         $this->getJson('/api/v1/cases/missing')->assertNotFound();
     }
 
@@ -109,7 +109,7 @@ class PublicContentTest extends TestCase
         foreach (['corporate-governance', 'Corporate Governance'] as $filter) {
             $this->getJson('/api/v1/cases?'.http_build_query(['category' => $filter]))->assertJsonCount(3, 'data');
         }
-        $this->getJson('/api/v1/cases/ordinary')->assertExactJson(['data' => [
+        $this->getJson('/api/v1/cases/ordinary')->assertExactJson(['status' => 200, 'response_code' => 0, 'error' => false, 'message' => 'Case study retrieved', 'data' => [
             'id' => 'ordinary', 'title' => 'Example ordinary', 'category' => 'Corporate Governance',
             'description' => 'Approved summary.', 'outcomeSummary' => 'Approved outcome.', 'keyDetails' => ['Approved detail'],
             'clientIndustry' => 'Technology', 'confidential' => false, 'featuredPosition' => null,

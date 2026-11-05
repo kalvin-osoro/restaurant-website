@@ -11,6 +11,53 @@ API contracts, data flows, and implementation explanations in this document.
 - [OAuth2 and permissions](#oauth2-authentication-roles-and-permissions)
 - [Tunnel networking](#tunnel-networking)
 
+## Standard application responses
+
+Application JSON controllers use the Composer-autoloaded `result()` helper in
+`app/helpers/UtilHelpers.php`. Success and error responses contain:
+
+```json
+{
+  "status": 200,
+  "response_code": 0,
+  "error": false,
+  "message": "Content retrieved",
+  "data": []
+}
+```
+
+The HTTP status matches `status`; `error` is false for 2xx responses. Legacy
+status `-1` maps to HTTP/status 200 with `error: false`. Data is always present,
+including empty arrays, zero, false, or null. Pagination keeps top-level `links`
+and `meta` so existing list clients can continue following them.
+
+```php
+return result('Content created', ['id' => $slug], 201);
+return result('Validation error', $validator->errors()->toArray(), 422);
+// The fifth argument is suppression; the fourth is the application response code.
+return result('Account registered', $account, 201, 0, true);
+```
+
+Validation failures raised by FormRequests also use the helper, with HTTP 422,
+`message: "Validation error"`, and field errors in `data`. The same field map is
+available as top-level `errors` for Laravel/client compatibility. The centralized
+exception responder standardizes application API 401/403/404/409/429/500 errors,
+preserves HTTP headers such as `Retry-After`, and hides 5xx debug details.
+
+The helper never logs payloads. Existing `LogRequests` middleware remains the
+single audit writer and records metadata only. The `suppress_logging` argument is
+accepted for call compatibility; neither value enables payload logging or disables
+mandatory metadata auditing. No `insert()` helper or audit schema change is needed.
+
+OAuth2 token/error responses retain Passport's OAuth2 schema. Browser login/consent
+views and redirects, CORS preflight responses, and the infrastructure `/up` probe
+retain their respective formats. Application `/api/v1/health` now reports numeric
+`status: 200`; its service status string is at `data.status`. Consultation receipts
+are now under `data` (`data.id`, `data.referenceNumber`, `data.success`), while the
+human-readable acknowledgment stays in top-level `message`. Inquiry clients must
+read the nested receipt fields. The resource examples below describe `data`;
+application responses also include the standard envelope shown above.
+
 ## Project contents
 
 - `app/`, `routes/`, `database/`, and `config/` are the active Laravel backend.
@@ -134,7 +181,8 @@ frontend's `VITE_API_BASE_URL` (see its `.env.example`), and allow its origin th
 `CORS_ALLOWED_ORIGINS`. The JSON fields are `fullName`, optional `organization`,
 `email`, `phone` (E.164 international format such as `+254712345678`),
 `natureOfInquiry`, `details`, and optional `preferredOffice`. A successful request
-returns HTTP 201 with `id`, `referenceNumber`, `success`, and `message`. Validation
+returns HTTP 201 with `data.id`, `data.referenceNumber`, `data.success`, and a
+top-level `message`. Validation
 errors use HTTP 422 and Laravel's field error arrays. The endpoint allows five
 requests per minute per IP; excessive requests return 429. An inquiry is received,
 not a confirmed appointment: staff must arrange the consultation time.
@@ -475,3 +523,29 @@ const response = await fetch('https://your-assigned-domain.ngrok-free.app/api/v1
 });
 const page = await response.json();
 ```
+
+## Automatic Docker migrations
+
+The `migrate` service in `compose.yaml` shares the app image, database environment,
+and persistent storage volume. It runs these commands as `www-data`:
+
+```bash
+php artisan migrate --force --no-interaction
+php artisan migrate:status --no-interaction
+```
+
+Laravel checks the database's `migrations` ledger and executes only pending files.
+The check occurs when the migration service starts; applied migrations are not
+replayed. Running `migrate` before `migrate:status` also supports a fresh database
+whose migration ledger does not exist yet. A command failure exits the service
+with an error. The app, queue, and scheduler retain their
+`service_completed_successfully` dependency, so a failed migration blocks their
+startup. The optional ngrok overlay inherits the same startup configuration.
+
+Application code and migrations are baked into the Docker image. Use
+`docker compose up --build -d` after adding migration files; use the corresponding
+Compose overlay options when running ngrok. A new image recreates the migration
+service with the updated files. `docker compose restart` uses the existing image
+and does not deploy newly added files. Migration updates should be new migration
+files; editing an already-applied file does not make it pending again. No automatic
+rollback, schema reset, seed, or volume deletion is performed.
