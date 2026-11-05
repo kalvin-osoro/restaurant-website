@@ -523,3 +523,29 @@ const response = await fetch('https://your-assigned-domain.ngrok-free.app/api/v1
 });
 const page = await response.json();
 ```
+
+## Automatic Docker migrations
+
+The `migrate` service in `compose.yaml` shares the app image, database environment,
+and persistent storage volume. It runs these commands as `www-data`:
+
+```bash
+php artisan migrate --force --no-interaction
+php artisan migrate:status --no-interaction
+```
+
+Laravel checks the database's `migrations` ledger and executes only pending files.
+The check occurs when the migration service starts; applied migrations are not
+replayed. Running `migrate` before `migrate:status` also supports a fresh database
+whose migration ledger does not exist yet. A command failure exits the service
+with an error. The app, queue, and scheduler retain their
+`service_completed_successfully` dependency, so a failed migration blocks their
+startup. The optional ngrok overlay inherits the same startup configuration.
+
+Application code and migrations are baked into the Docker image. Use
+`docker compose up --build -d` after adding migration files; use the corresponding
+Compose overlay options when running ngrok. A new image recreates the migration
+service with the updated files. `docker compose restart` uses the existing image
+and does not deploy newly added files. Migration updates should be new migration
+files; editing an already-applied file does not make it pending again. No automatic
+rollback, schema reset, seed, or volume deletion is performed.

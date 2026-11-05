@@ -16,7 +16,18 @@ x-app: &app
 services:
   migrate:
     <<: *app
-    command: ["php", "artisan", "migrate", "--force", "--no-interaction"]
+    # Laravel checks its migration ledger and applies only pending migrations.
+    # Run status afterwards so a fresh database is supported too.
+    command:
+      - su
+      - -s
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        php artisan migrate --force --no-interaction
+        php artisan migrate:status --no-interaction
+      - www-data
     restart: "no"
 
   app:
