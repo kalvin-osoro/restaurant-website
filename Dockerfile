@@ -2,8 +2,8 @@
 FROM php:8.4-apache-bookworm
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libonig-dev libsqlite3-dev unzip \
-    && docker-php-ext-install -j"$(nproc)" mbstring pdo_sqlite pdo_mysql pcntl opcache \
+    && apt-get install -y --no-install-recommends libonig-dev libsqlite3-dev libpq-dev unzip \
+    && docker-php-ext-install -j"$(nproc)" mbstring pdo_sqlite pdo_mysql pdo_pgsql pcntl opcache \
     && a2enmod rewrite \
     && cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
     && rm -rf /var/lib/apt/lists/*

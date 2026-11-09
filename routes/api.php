@@ -9,7 +9,6 @@ use App\Http\Controllers\ConsultationController;
 use App\Http\Controllers\PracticeAreaWriteController;
 use App\Http\Controllers\PublicContentController;
 use App\Http\Controllers\TeamWriteController;
-use App\Http\Middleware\AuthorizeContentWrite;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => result('Service healthy', [
@@ -55,7 +54,8 @@ Route::middleware('throttle:60,1')->group(function () {
     });
 });
 
-Route::middleware(['throttle:30,1', AuthorizeContentWrite::class])->group(function () {
+// Content writes are temporarily public during CRUD development.
+Route::middleware('throttle:30,1')->group(function () {
     Route::prefix('team')->group(function () {
         Route::post('/', [TeamWriteController::class, 'store'])->name('api.team.store');
         Route::post('/{slug}', [TeamWriteController::class, 'store'])

@@ -1,0 +1,18 @@
+# Linux development: reach PostgreSQL bound to the host's loopback interface.
+# Use with compose.yaml; use compose.ngrok-host.yaml for an optional tunnel.
+services:
+  migrate:
+    network_mode: host
+
+  app:
+    network_mode: host
+    ports: !reset []
+    command: ["php", "artisan", "serve", "--host=127.0.0.1", "--port=${APP_PORT:-8000}"]
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:${APP_PORT:-8000}/api/v1/health') === false ? 1 : 0);"]
+
+  queue:
+    network_mode: host
+
+  scheduler:
+    network_mode: host

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CaseCategory extends Model
 {
+    protected $table = 'tbl_case_categories';
+
     protected $fillable = ['slug', 'name', 'display_order'];
 
     public function caseStudies(): HasMany

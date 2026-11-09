@@ -145,7 +145,7 @@ Internal numeric IDs, publication states, and timestamps are not serialized.
 All public attorney queries require `published`; all public case queries also
 require `confidential=false`. Hidden records return 404 even by direct slug.
 
-Maintain content through the protected POST endpoints below or the trusted CLI import. Review all biographies, qualifications, contact details, and case
+Maintain content through the POST endpoints below or the trusted CLI import. Review all biographies, qualifications, contact details, and case
 summaries before setting `status` to `published`. This module stores marketing
 summaries, not client files or internal legal matter notes.
 
@@ -219,12 +219,12 @@ Authenticated SMTP needs both `MAIL_USERNAME` and `MAIL_PASSWORD`; unauthenticat
 trusted relays can leave both empty. Use the provider's approved sender and TLS
 settings (`MAIL_SCHEME=smtp` with STARTTLS, or `smtps` for implicit TLS).
 
-The `cache_locks` migration is required for scheduler and worker overlap locks.
+The `tbl_cache_locks` migration is required for scheduler and worker overlap locks.
 Use `CACHE_STORE=database` and `QUEUE_CONNECTION=database` for the supplied setup.
 Local defaults use `MAIL_MAILER=log` and blank provider credentials; real email/SMS
 requires environment-specific provider configuration.
 
-Booking atomically creates one `notification_logs` outbox record for each enabled
+Booking atomically creates one `tbl_notification_logs` outbox record for each enabled
 channel. Start these processes to deliver notifications:
 
 ```bash
@@ -296,7 +296,7 @@ provide end-to-end deduplication here: a crash after provider acceptance but bef
 recording success can cause a duplicate delivery on retry.
 
 After fixing a provider problem, use `php artisan queue:retry <failed-job-uuid>`.
-First reset that delivery's `notification_logs.status` from `failed` to `retrying`
+First reset that delivery's `tbl_notification_logs.status` from `failed` to `retrying`
 through trusted administration/Tinker; completed notifications must not be reset.
 Do not reset queued records while workers are active. Protect notification config
 and never expose an administration action through the public booking route.
@@ -363,16 +363,12 @@ public HTTPS origin followed by `/api/v1`, then restart/rebuild the frontend.
 | `/cases/{slug}` | Replace an existing case study's complete content |
 | `/case-categories` | Create a case category |
 
-Writes accept an admin/manager OAuth2 access token or the legacy server-only
-`CONTENT_WRITE_TOKEN` as a bearer credential and are limited to 30 requests per
-minute per client. For the legacy integration credential: Configure a cryptographically random token of
-at least 32 characters in `.env`, or `.env.docker` for Compose; generate one with
-`openssl rand -hex 32`. Keep this credential on a trusted server or in an operator's
-API client, never in `VITE_*` variables or browser code. Public GET requests need
-no token. An unset/short configured service token disables that authentication
-path with 503; missing/invalid service credentials return 401. Admin/manager
-access tokens work independently of this service-token setting. Run `php artisan config:clear` after host configuration
-changes, or rebuild/recreate the Compose app to pick up code and environment changes.
+Content POST endpoints are temporarily public during CRUD development. They
+require no token, login, role, or OAuth2 scope. Validation, publication defaults,
+transactional persistence, request auditing, and the shared 30 requests per minute
+per IP limit remain enabled. Account, logout, and role-assignment endpoints retain
+their existing OAuth2 protection. Authentication can be restored to content routes
+after the basic CRUD work is complete.
 
 Request JSON uses the same camelCase record fields as the reviewed import format
 above, but send **one record** directly, without the top-level import arrays.
@@ -383,13 +379,11 @@ these endpoints do not accept multipart image uploads.
 
 ```bash
 curl -X POST "$API_BASE_URL/practice-areas" \
-  -H "Authorization: Bearer $CONTENT_WRITE_TOKEN" \
   -H 'Accept: application/json' -H 'Content-Type: application/json' \
   --data '{"slug":"corporate-law","name":"Corporate Law"}'
 
 # partner.json contains a complete attorney record in the documented import format.
 curl -X POST "$API_BASE_URL/team" \
-  -H "Authorization: Bearer $CONTENT_WRITE_TOKEN" \
   -H 'Accept: application/json' -H 'Content-Type: application/json' \
   --data-binary @partner.json
 ```
@@ -421,7 +415,7 @@ Authentication uses Laravel Passport's OAuth2 Authorization Code flow with PKCE
 access tokens no longer authenticate; users must authorize the OAuth2 client.
 The former JSON `POST /api/v1/auth/login` token endpoint has been retired.
 Registration creates an account only; tokens are issued by the OAuth2 server.
-The historical `personal_access_tokens` migration is retained for safe upgrades,
+The historical `tbl_personal_access_tokens` migration is retained for safe upgrades,
 but its tokens are never accepted. Password and implicit grants stay disabled.
 
 | Role | Permissions |
@@ -430,12 +424,12 @@ but its tokens are never accepted. Password and implicit grants stay disabled.
 | `manager` | `account.view`, `content.write` |
 | `admin` | `account.view`, `content.write`, `users.assign-roles` |
 
-OAuth2 scopes use the same names, but they do not grant roles: protected operations
-require both the token scope and the account permission. Role changes take effect
-on existing access tokens. Public content reads and consultation submissions stay
-public. The server-only `CONTENT_WRITE_TOKEN` still grants content writes only,
-not account access or role assignment; remove it from deployment configuration if
-all integrations have switched to OAuth2.
+OAuth2 scopes do not grant roles: protected account operations require both the
+token scope and the account permission. Role changes take effect on existing
+access tokens. Content GET/POST endpoints and consultation submissions are public
+for now. The `content.write` role permission/scope is defined for later use but is
+not enforced on content endpoints during CRUD development. The former shared
+content-token middleware and configuration have been removed.
 
 ### Deployment prerequisites
 
@@ -464,8 +458,8 @@ managers are preserved. No clients or accounts are seeded automatically.
 3. Navigate the browser to the backend `/api/v1/oauth/authorize` with query
    parameters `response_type=code`, `client_id`, `redirect_uri`, `state`,
    `code_challenge`, `code_challenge_method=S256`, and space-separated `scope`.
-   The default scope is `account.view`; content management also requires
-   `content.write`, and the admin role screen also requires `users.assign-roles`.
+   The default scope is `account.view`; the admin role screen also requires
+   `users.assign-roles`. Content CRUD does not currently require an OAuth2 scope.
 4. The backend prompts for login and consent. On the frontend callback, validate
    `state` against the saved value before accepting any code. Handle denial via
    the OAuth2 `error` parameter and clear temporary state/verifier afterwards.
@@ -549,3 +543,73 @@ service with the updated files. `docker compose restart` uses the existing image
 and does not deploy newly added files. Migration updates should be new migration
 files; editing an already-applied file does not make it pending again. No automatic
 rollback, schema reset, seed, or volume deletion is performed.
+
+## PostgreSQL database configuration
+
+Laravel's `pgsql` connection reads `DB_HOST`, `DB_PORT`, `DB_DATABASE`,
+`DB_USERNAME`, `DB_PASSWORD`, `DB_SEARCH_PATH`, and `DB_SSLMODE` from `.env`.
+`DB_URL` may alternatively supply a connection URL. The image includes `pdo_pgsql`.
+SQLite remains available for isolated tests and existing databases, but Compose
+no longer forces a SQLite connection or loads the separate `.env.docker` file.
+
+Every PHP service loads `.env` via Compose `env_file`; database settings therefore
+remain available even when Compose interpolation uses `--env-file .env.ngrok`.
+No credentials are baked into the image. Migration, app, queue, and scheduler
+services use the same configured database. Pending migrations are applied there
+before the services start; switching drivers does not copy existing SQLite rows.
+
+The Linux development overlay `compose.postgres-host.yaml` uses host networking
+for a PostgreSQL service bound to `127.0.0.1`. The app runs the local development
+server bound to loopback, with no Docker port publication. The corresponding
+`compose.ngrok-host.yaml` agent also uses host networking and forwards to that
+loopback address. Only loopback proxies are trusted in this configuration. The
+original `compose.ngrok.yaml` remains the tunnel overlay for the standard Apache
+bridge-network deployment. These tunnel overlays are alternatives.
+
+## Database table naming
+
+All project tables use a single `tbl_` prefix. Models specify physical table names
+explicitly; Laravel's connection-wide `prefix` remains empty. URLs, JSON field
+names, role/provider names, and foreign-key column names are unchanged.
+
+- Content: `tbl_attorneys`, `tbl_practice_areas`, `tbl_attorney_practice_area`,
+  `tbl_case_studies`, `tbl_case_categories`.
+- Accounts and consultations: `tbl_users`, `tbl_consultations`,
+  `tbl_notification_logs`. The existing `tbl_request_logs` keeps its name.
+- Framework: `tbl_sessions`, `tbl_cache`, `tbl_cache_locks`, `tbl_jobs`,
+  `tbl_failed_jobs`, and `tbl_migrations`.
+- OAuth2: `tbl_oauth_clients`, `tbl_oauth_auth_codes`, `tbl_oauth_access_tokens`,
+  `tbl_oauth_refresh_tokens`, `tbl_oauth_device_codes`.
+- Historical/optional tables are renamed when present: `tbl_personal_access_tokens`,
+  `tbl_password_reset_tokens`, and `tbl_job_batches`. Optional features are not
+  enabled or provisioned merely by changing their configured table names.
+
+The forward migration `2026_11_09_000001_prefix_database_tables` renames existing
+tables rather than recreating them. Rows, identifiers, encrypted values, and
+relationships are retained. Existing constraint and index names are unchanged;
+use their actual names when modifying those constraints in future migrations. Original migration files are unchanged: fresh installs
+create their historical schema and then apply the same rename. Conflicting old
+and new names abort the rename before any table is changed. Unrelated database
+tables are not renamed. PostgreSQL/SQLite perform the migration transactionally;
+other drivers retain their native DDL transaction behavior.
+
+`PrefixedMigrationRepository` reads the existing `migrations` ledger until the
+rename moves it to `tbl_migrations`. It resolves the ledger per operation so that
+recording the rename and rolling it back still work. Fresh installs create
+`tbl_migrations` directly. If both ledger names exist, the repository stops rather
+than guessing or merging history. Status checks never perform renames.
+
+Eloquent models and the attorney/practice-area pivot use their prefixed names.
+Passport uses application subclasses of its five persistence models, registered
+in `AppServiceProvider`; vendor code is unchanged. Database cache/lock, queue,
+failed-job, session, password-reset and job-batching configuration points to
+prefixed tables. Registration/content validation and notification readiness
+checks use those same physical names. The legacy Sanctum table stays unused.
+
+Stop the old app, queue, and scheduler before this schema transition. Run
+`php artisan config:clear`, then `php artisan migrate --force` yourself against
+the intended database and restart services with the updated code. Docker's
+migration service applies this pending migration on startup as usual; stop old
+containers before deploying the new stack. Existing records are not copied
+between databases. Rolling back this migration renames tables back and restores
+the legacy ledger; restore the matching application code before serving traffic.

@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CaseStudy extends Model
 {
+    protected $table = 'tbl_case_studies';
+
     protected $fillable = ['slug', 'case_category_id', 'title', 'description', 'value', 'timeline', 'jurisdiction', 'outcome_summary', 'key_details', 'image_url', 'client_industry', 'confidential', 'status', 'display_order', 'featured_position'];
 
     protected function casts(): array

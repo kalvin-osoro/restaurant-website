@@ -19,7 +19,7 @@ class CreateAccount extends Command
             'role' => $this->option('role'), 'password' => $this->secret('Password (at least 12 characters)')];
         $validator = Validator::make($data, [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'email', 'max:255', 'unique:tbl_users,email'],
             'role' => ['required', Rule::enum(Role::class)],
             'password' => ['required', 'string', 'min:12', 'max:128'],
         ]);

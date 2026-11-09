@@ -22,7 +22,7 @@ abstract class SaveContentRequest extends FormRequest
                 $rules[substr($key, strlen($prefix))] = array_values(array_filter($value, fn ($rule) => $rule !== 'distinct'));
             }
         }
-        $tables = ['attorneys' => 'attorneys', 'cases' => 'case_studies', 'practiceAreas' => 'practice_areas', 'caseCategories' => 'case_categories'];
+        $tables = ['attorneys' => 'tbl_attorneys', 'cases' => 'tbl_case_studies', 'practiceAreas' => 'tbl_practice_areas', 'caseCategories' => 'tbl_case_categories'];
         $table = $tables[$type];
         $slug = $this->route('slug');
         $rules['slug'][] = Rule::unique($table, 'slug')->ignore($slug, 'slug');
@@ -35,10 +35,10 @@ abstract class SaveContentRequest extends FormRequest
         }
         if ($type === 'attorneys') {
             $rules['practiceAreas.*'][] = 'distinct';
-            $rules['practiceAreas.*'][] = Rule::exists('practice_areas', 'slug');
+            $rules['practiceAreas.*'][] = Rule::exists('tbl_practice_areas', 'slug');
         }
         if ($type === 'cases') {
-            $rules['category'][] = Rule::exists('case_categories', 'slug');
+            $rules['category'][] = Rule::exists('tbl_case_categories', 'slug');
         }
         return $rules;
     }

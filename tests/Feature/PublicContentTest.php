@@ -165,9 +165,9 @@ class PublicContentTest extends TestCase
             file_put_contents($file, json_encode($data));
             $this->artisan('website-content:import', ['file' => $file])->assertSuccessful();
             $this->artisan('website-content:import', ['file' => $file])->assertSuccessful();
-            $this->assertDatabaseCount('attorneys', 1);
-            $this->assertDatabaseHas('attorneys', ['slug' => 'imported-partner', 'status' => 'draft']);
-            $this->assertDatabaseHas('case_studies', ['slug' => 'imported-case', 'status' => 'draft', 'confidential' => true]);
+            $this->assertDatabaseCount('tbl_attorneys', 1);
+            $this->assertDatabaseHas('tbl_attorneys', ['slug' => 'imported-partner', 'status' => 'draft']);
+            $this->assertDatabaseHas('tbl_case_studies', ['slug' => 'imported-case', 'status' => 'draft', 'confidential' => true]);
             $this->getJson('/api/v1/attorneys/imported-partner')->assertNotFound();
             $this->getJson('/api/v1/cases/imported-case')->assertNotFound();
 
@@ -182,14 +182,14 @@ class PublicContentTest extends TestCase
             $data['attorneys'][0]['education'] = ['bad' => 'Not an ordered list'];
             file_put_contents($file, json_encode($data));
             $this->artisan('website-content:import', ['file' => $file])->assertFailed();
-            $this->assertDatabaseHas('attorneys', ['status' => 'published']);
+            $this->assertDatabaseHas('tbl_attorneys', ['status' => 'published']);
 
             $data['attorneys'][0]['education'] = [];
             $data['attorneys'][0]['name'] = 'Should roll back';
             $data['cases'][0]['category'] = 'missing';
             file_put_contents($file, json_encode($data));
             $this->artisan('website-content:import', ['file' => $file])->assertFailed();
-            $this->assertDatabaseHas('attorneys', ['name' => 'Example Partner']);
+            $this->assertDatabaseHas('tbl_attorneys', ['name' => 'Example Partner']);
         } finally {
             unlink($file);
         }

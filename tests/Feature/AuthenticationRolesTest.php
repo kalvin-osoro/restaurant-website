@@ -42,19 +42,19 @@ class AuthenticationRolesTest extends TestCase
         $this->assertTrue(Hash::check($data['password'], $user->password));
         $this->assertNotSame($data['password'], $user->password);
         $this->assertArrayNotHasKey('password', $response->json('data'));
-        $this->assertDatabaseCount('oauth_access_tokens', 0);
+        $this->assertDatabaseCount('tbl_oauth_access_tokens', 0);
         $this->withToken($this->token($user))->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.permissions', ['account.view']);
     }
 
-    public function test_admin_and_manager_can_write_but_normal_users_cannot(): void
+    public function test_content_writes_do_not_require_an_account_role(): void
     {
         foreach ([Role::Admin, Role::Manager, Role::User] as $role) {
             app('auth')->forgetGuards();
             $user = $this->account($role);
             $response = $this->withToken($this->token($user))->postJson('/api/v1/practice-areas', ['slug' => $role->value, 'name' => $role->value]);
-            $role === Role::User ? $response->assertForbidden() : $response->assertCreated();
+            $response->assertCreated();
         }
-        $this->assertDatabaseCount('practice_areas', 2);
+        $this->assertDatabaseCount('tbl_practice_areas', 3);
     }
 
     public function test_only_admins_can_assign_roles_and_changes_affect_existing_tokens(): void
@@ -75,7 +75,7 @@ class AuthenticationRolesTest extends TestCase
         $this->postJson('/api/v1/users/'.$admin->id.'/role', ['role' => 'user'])->assertUnprocessable();
         $this->postJson($url, ['role' => 'super-admin'])->assertUnprocessable();
         app('auth')->forgetGuards();
-        $this->withToken($targetToken)->postJson('/api/v1/practice-areas', ['slug' => 'other', 'name' => 'Other'])->assertForbidden();
+        $this->withToken($targetToken)->postJson('/api/v1/practice-areas', ['slug' => 'other', 'name' => 'Other'])->assertCreated();
     }
 
     public function test_role_cannot_be_mass_assigned_and_cli_can_bootstrap_admin(): void
@@ -84,7 +84,7 @@ class AuthenticationRolesTest extends TestCase
         $this->assertSame(Role::User, $user->role);
         $this->artisan('users:create', ['email' => 'admin@example.com', '--name' => 'Administrator', '--role' => 'admin'])
             ->expectsQuestion('Password (at least 12 characters)', 'strong-password-123')->assertSuccessful();
-        $this->assertDatabaseHas('users', ['email' => 'admin@example.com', 'role' => 'admin']);
+        $this->assertDatabaseHas('tbl_users', ['email' => 'admin@example.com', 'role' => 'admin']);
     }
 
     public function test_authentication_is_required_and_browser_login_is_rate_limited(): void
@@ -99,6 +99,10 @@ class AuthenticationRolesTest extends TestCase
 
     public function test_legacy_roles_migrate_to_user_and_preserve_admins_and_managers(): void
     {
+        \Illuminate\Support\Facades\Schema::create('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+            $table->id(); $table->string('name'); $table->string('email');
+            $table->string('password'); $table->string('role')->default('customer');
+        });
         foreach (['customer', 'unknown', 'admin', 'manager'] as $role) {
             DB::table('users')->insert(['name' => $role, 'email' => $role.'@example.com', 'password' => Hash::make('strong-password-123'), 'role' => $role]);
         }
@@ -111,12 +115,11 @@ class AuthenticationRolesTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'default@example.com', 'role' => 'user']);
     }
 
-    public function test_service_token_cannot_manage_roles_and_api_errors_are_json_without_accept_header(): void
+    public function test_invalid_tokens_cannot_manage_roles_and_api_errors_are_json_without_accept_header(): void
     {
         $this->get('/api/v1/me')->assertUnauthorized()->assertHeader('Content-Type', 'application/json');
-        config(['website-content.write_token' => str_repeat('x', 40)]);
         $user = $this->account();
-        $this->withToken(str_repeat('x', 40))->postJson('/api/v1/users/'.$user->id.'/role', ['role' => 'admin'])->assertUnauthorized();
+        $this->withToken('invalid-token')->postJson('/api/v1/users/'.$user->id.'/role', ['role' => 'admin'])->assertUnauthorized();
         $this->assertSame(Role::User, $user->fresh()->role);
     }
 }

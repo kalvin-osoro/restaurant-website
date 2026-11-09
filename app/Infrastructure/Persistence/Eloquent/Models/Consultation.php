@@ -2,6 +2,8 @@
 namespace App\Infrastructure\Persistence\Eloquent\Models;
 use Illuminate\Database\Eloquent\Model;
 class Consultation extends Model {
+    protected $table = 'tbl_consultations';
+
     protected $fillable = ['reference', 'full_name', 'organization', 'email', 'phone', 'nature_of_inquiry', 'details', 'preferred_office'];
     protected $hidden = ['full_name', 'organization', 'email', 'phone', 'details'];
     protected function casts(): array {

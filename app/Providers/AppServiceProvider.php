@@ -13,8 +13,21 @@ class AppServiceProvider extends ServiceProvider
         \App\Domain\WebsiteContent\Contracts\PublicContentRepository::class => \App\Infrastructure\Persistence\Eloquent\Repositories\EloquentPublicContentRepository::class,
         ConsultationRepository::class => EloquentConsultationRepository::class,
     ];
+    public function register(): void
+    {
+        // Read a legacy migration ledger until the rename migration upgrades it.
+        $this->app->extend('migration.repository', fn ($repository, $app) =>
+            new \App\Infrastructure\Persistence\Eloquent\PrefixedMigrationRepository($app['db'], 'tbl_migrations'));
+    }
+
     public function boot(): void
     {
+        \Laravel\Passport\Passport::useAuthCodeModel(\App\Infrastructure\Persistence\Eloquent\Models\OAuth\AuthCode::class);
+        \Laravel\Passport\Passport::useClientModel(\App\Infrastructure\Persistence\Eloquent\Models\OAuth\Client::class);
+        \Laravel\Passport\Passport::useTokenModel(\App\Infrastructure\Persistence\Eloquent\Models\OAuth\Token::class);
+        \Laravel\Passport\Passport::useRefreshTokenModel(\App\Infrastructure\Persistence\Eloquent\Models\OAuth\RefreshToken::class);
+        \Laravel\Passport\Passport::useDeviceCodeModel(\App\Infrastructure\Persistence\Eloquent\Models\OAuth\DeviceCode::class);
+
         \Laravel\Passport\Passport::authorizationView('auth.authorize');
         \Laravel\Passport\Passport::tokensExpireIn(now()->addHour());
         \Laravel\Passport\Passport::personalAccessTokensExpireIn(now()->addHour());

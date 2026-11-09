@@ -51,7 +51,7 @@ class TunnelNetworkingTest extends TestCase
         ])->options('/api/v1/consultations')->assertNoContent()
             ->assertHeader('Access-Control-Allow-Origin', 'https://frontend.example.com')
             ->assertHeader('Access-Control-Allow-Headers', 'content-type,ngrok-skip-browser-warning');
-        $this->assertSame(0, DB::table('consultations')->count());
+        $this->assertSame(0, DB::table('tbl_consultations')->count());
         $this->assertDatabaseHas('tbl_request_logs', ['method' => 'OPTIONS', 'status' => 204]);
     }
 

@@ -48,7 +48,7 @@ class OAuthFlowTest extends TestCase
         $access = $tokens->json('access_token');
         $this->withToken($access)->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.role', 'user');
         app('auth')->forgetGuards();
-        $this->withToken($access)->postJson('/api/v1/practice-areas', ['slug' => 'law', 'name' => 'Law'])->assertForbidden();
+        $this->withToken($access)->postJson('/api/v1/practice-areas', ['slug' => 'law', 'name' => 'Law'])->assertCreated();
         $refresh = ['grant_type' => 'refresh_token', 'client_id' => $request['client_id'], 'refresh_token' => $tokens->json('refresh_token')];
         $new = $this->postJson('/api/v1/oauth/token', $refresh)->assertOk();
         app('auth')->forgetGuards();
@@ -92,11 +92,11 @@ class OAuthFlowTest extends TestCase
         User::create(['name' => 'Example', 'email' => 'login@example.com', 'password' => 'strong-password-123']);
         $this->post('/login', ['email' => 'login@example.com', 'password' => 'strong-password-123'])->assertRedirect('/');
         $this->assertAuthenticated('web');
-        $this->assertDatabaseCount('oauth_access_tokens', 0);
+        $this->assertDatabaseCount('tbl_oauth_access_tokens', 0);
         $this->post('/logout')->assertRedirect(route('login'));
         $this->assertGuest('web');
     }
-    public function test_oauth_scopes_limit_even_administrator_tokens(): void
+    public function test_account_scopes_remain_enforced_while_content_writes_are_public(): void
     {
         $user = new User(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => 'strong-password-123']);
         $user->role = \App\Domain\Identity\Role::Admin;
@@ -104,9 +104,9 @@ class OAuthFlowTest extends TestCase
         app(ClientRepository::class)->createPersonalAccessGrantClient('Tests', 'users');
         $token = $user->createToken('limited', ['account.view'])->accessToken;
         $this->withToken($token)->getJson('/api/v1/me')->assertOk();
-        $this->postJson('/api/v1/practice-areas', ['slug' => 'law', 'name' => 'Law'])->assertForbidden();
+        $this->postJson('/api/v1/practice-areas', ['slug' => 'law', 'name' => 'Law'])->assertCreated();
         $this->postJson('/api/v1/users/'.$user->id.'/role', ['role' => 'manager'])->assertForbidden();
-        $this->assertDatabaseCount('practice_areas', 0);
+        $this->assertDatabaseCount('tbl_practice_areas', 1);
     }
 
 }

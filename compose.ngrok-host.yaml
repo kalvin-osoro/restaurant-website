@@ -1,0 +1,24 @@
+# Optional ngrok overlay for compose.postgres-host.yaml (Linux development).
+services:
+  app:
+    environment:
+      APP_DEBUG: "false"
+      APP_URL: ${NGROK_URL:?Set NGROK_URL in .env.ngrok}
+      TRUSTED_PROXIES: 127.0.0.1,::1
+      SESSION_SECURE_COOKIE: "true"
+
+  ngrok:
+    image: ngrok/ngrok:3
+    network_mode: host
+    command:
+      - http
+      - http://127.0.0.1:${APP_PORT:-8000}
+      - --url=${NGROK_URL:?Set NGROK_URL in .env.ngrok}
+      - --inspect=false
+      - --log=stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Set NGROK_AUTHTOKEN in .env.ngrok}
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
