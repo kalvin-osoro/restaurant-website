@@ -9,6 +9,8 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements \Laravel\Passport\Contracts\OAuthenticatable
 {
+    protected $table = 'tbl_users';
+
     use HasFactory, Notifiable, \Laravel\Passport\HasApiTokens;
 
     protected $fillable = ['name', 'email', 'password'];

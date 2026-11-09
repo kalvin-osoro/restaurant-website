@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Attorney extends Model
 {
+    protected $table = 'tbl_attorneys';
+
     protected $fillable = ['slug', 'name', 'role', 'bio', 'image_url', 'email', 'phone', 'education', 'admissions', 'notable_cases', 'status', 'display_order'];
 
     protected function casts(): array
@@ -22,6 +24,6 @@ class Attorney extends Model
 
     public function practiceAreas(): BelongsToMany
     {
-        return $this->belongsToMany(PracticeArea::class)->orderBy('display_order')->orderBy('slug');
+        return $this->belongsToMany(PracticeArea::class, 'tbl_attorney_practice_area')->orderBy('display_order')->orderBy('slug');
     }
 }

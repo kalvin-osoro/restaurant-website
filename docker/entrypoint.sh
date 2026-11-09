@@ -2,7 +2,7 @@
 set -eu
 
 if [ -z "${APP_KEY:-}" ]; then
-    echo "APP_KEY is required. Set a persistent key in .env.docker before starting." >&2
+    echo "APP_KEY is required. Set a persistent key in .env before starting." >&2
     exit 1
 fi
 
@@ -11,6 +11,8 @@ mkdir -p storage/app/public storage/framework/cache/data \
     storage/framework/sessions storage/framework/views storage/logs
 
 if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
+    DB_DATABASE="${DB_DATABASE:-/var/www/html/storage/database/database.sqlite}"
+    export DB_DATABASE
     mkdir -p "$(dirname "$DB_DATABASE")"
     if [ ! -f "$DB_DATABASE" ]; then
         touch "$DB_DATABASE"

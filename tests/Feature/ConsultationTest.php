@@ -14,10 +14,10 @@ class ConsultationTest extends TestCase {
     private function payload(): array { return ['fullName' => 'Jane Counsel', 'organization' => 'Example Firm', 'email' => 'jane@example.com', 'phone' => '+254712345678', 'natureOfInquiry' => 'Corporate Representation', 'details' => 'Confidential matter for discussion.']; }
     public function test_booking_is_encrypted_and_creates_durable_notifications(): void {
         $this->postJson('/api/v1/consultations', $this->payload() + ['status' => 'approved'])->assertCreated()->assertJsonPath('data.success', true);
-        $this->assertDatabaseCount('consultations', 1);
-        $this->assertDatabaseCount('notification_logs', 2);
+        $this->assertDatabaseCount('tbl_consultations', 1);
+        $this->assertDatabaseCount('tbl_notification_logs', 2);
         $this->assertSame($this->payload()['details'], Consultation::first()->details);
-        $this->assertStringNotContainsString('Confidential', DB::table('consultations')->value('details'));
+        $this->assertStringNotContainsString('Confidential', DB::table('tbl_consultations')->value('details'));
         $this->assertDatabaseHas('tbl_request_logs', ['status' => 201, 'route' => 'api/v1/consultations']);
         $this->assertStringNotContainsString('jane@example.com', json_encode(DB::table('tbl_request_logs')->first()));
         Queue::fake();
@@ -28,7 +28,7 @@ class ConsultationTest extends TestCase {
     public function test_validation_and_unmatched_requests_are_logged(): void {
         $this->postJson('/api/v1/consultations', array_replace($this->payload(), ['phone' => '123', 'natureOfInquiry' => 'unknown']))->assertUnprocessable()->assertJsonValidationErrors(['phone', 'natureOfInquiry']);
         $this->getJson('/api/v1/missing')->assertNotFound();
-        $this->assertDatabaseCount('consultations', 0);
+        $this->assertDatabaseCount('tbl_consultations', 0);
         $this->assertDatabaseHas('tbl_request_logs', ['status' => 422]);
         $this->assertDatabaseHas('tbl_request_logs', ['status' => 404]);
     }
@@ -63,8 +63,8 @@ class ConsultationTest extends TestCase {
         config(['queue.default' => 'database']);
         $this->postJson('/api/v1/consultations', $this->payload())->assertCreated();
         $this->artisan('consultations:dispatch')->assertSuccessful();
-        $this->assertDatabaseCount('jobs', 2);
-        $this->assertDatabaseHas('notification_logs', ['channel' => 'email', 'status' => 'queued']);
+        $this->assertDatabaseCount('tbl_jobs', 2);
+        $this->assertDatabaseHas('tbl_notification_logs', ['channel' => 'email', 'status' => 'queued']);
     }
     public function test_whatsapp_uses_configured_template_and_can_be_disabled(): void {
         config(['consultations.channels.email.enabled' => false, 'consultations.channels.sms.enabled' => false,
@@ -73,7 +73,7 @@ class ConsultationTest extends TestCase {
         Http::preventStrayRequests();
         Http::fake(['api.twilio.com/*' => Http::response(['sid' => 'SMwhatsapp'], 201)]);
         $this->postJson('/api/v1/consultations', $this->payload())->assertCreated();
-        $this->assertDatabaseCount('notification_logs', 1);
+        $this->assertDatabaseCount('tbl_notification_logs', 1);
         $log = NotificationLog::first();
         (new SendConsultationNotification($log->id))->handle();
         Http::assertSent(fn ($request) => $request['To'] === 'whatsapp:+254712345678' && $request['ContentSid'] === 'HXexample');

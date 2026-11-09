@@ -22,7 +22,7 @@ class CheckConsultationNotifications extends Command
         }
 
         try {
-            foreach (['consultations', 'notification_logs', 'jobs', 'failed_jobs', 'cache', 'cache_locks'] as $table) {
+            foreach (['tbl_consultations', 'tbl_notification_logs', 'tbl_jobs', 'tbl_failed_jobs', 'tbl_cache', 'tbl_cache_locks'] as $table) {
                 if (!Schema::hasTable($table)) {
                     $issues[] = "Missing table: {$table}. Run php artisan migrate.";
                 }

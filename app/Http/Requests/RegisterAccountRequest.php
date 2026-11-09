@@ -12,7 +12,7 @@ class RegisterAccountRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'lowercase', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'email', 'lowercase', 'max:255', 'unique:tbl_users,email'],
             'password' => ['required', 'string', 'min:12', 'max:128', 'confirmed'],
             'role' => ['prohibited'], 'permissions' => ['prohibited'],
         ];

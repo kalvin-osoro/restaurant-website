@@ -7,7 +7,7 @@ For API contracts, OAuth2 flows, permissions, and architecture, see the
 ## Local setup
 
 Requirements: PHP 8.4.1 or newer, Composer, and a supported database. The supplied
-Docker setup uses PHP 8.4 and SQLite.
+Docker setup uses PHP 8.4 and the database configured in `.env` (PostgreSQL by default).
 
 ```bash
 composer install
@@ -28,22 +28,33 @@ Verify the service:
 curl http://localhost:8000/api/v1/health
 ```
 
-Complete [OAuth2 setup](#oauth2-setup) before using authenticated endpoints.
+Content CRUD requests currently need no authentication. Complete
+[OAuth2 setup](#oauth2-setup) only when using protected account endpoints.
+
+Upgrading an existing database to `tbl_` table names requires the pending rename
+migration. Stop application traffic, workers, and the scheduler while migrating,
+then restart them with the updated code. See the [table naming reference](docs/implementation.md#database-table-naming)
+for the rename and rollback details.
+
 
 ## Docker setup
 
-Install Docker Engine or Docker Desktop with Docker Compose. Create the container
-environment and generate an application key:
+Install Docker Engine or Docker Desktop with Docker Compose. Docker reads the
+same `.env` as host PHP, including `APP_KEY` and all `DB_*` credentials;
+`.env.docker` is no longer loaded. Create `.env` from `.env.example` only if it does
+not already exist, configure PostgreSQL, and generate an application key once:
 
 ```bash
-cp .env.docker.example .env.docker
-docker compose run --rm --no-deps --entrypoint php app -r 'echo "base64:" . base64_encode(random_bytes(32)) . PHP_EOL;'
+cp .env.example .env # First-time setup only; preserve an existing .env.
+php artisan key:generate
 ```
 
-Paste the generated value into `APP_KEY` in `.env.docker`. For an existing
-database, retain its existing key. Back up this key with the database; changing it
-can make encrypted consultation records unreadable. Configure CORS and any
-notification providers in `.env.docker`.
+For an existing database, retain its existing key and back it up with the database.
+Configure CORS and notification providers in `.env`. PostgreSQL must already exist;
+Compose does not provision or replace the database server.
+
+For PostgreSQL reachable from a container network (such as a remote database), use
+the standard stack below. `DB_HOST` must be reachable from inside the containers.
 
 ```bash
 docker compose up --build -d
@@ -56,10 +67,11 @@ Compose automatically applies pending migrations before starting the API, queue
 worker, and scheduler, then prints migration status. Already applied migrations
 are skipped. After adding migration files, run `docker compose up --build -d`
 (or the ngrok command below); no manual migration command is needed. Inspect the
-result with `docker compose logs migrate`. Container data is
-separate from the host database and persists in the `app-storage` volume. The API
+result with `docker compose logs migrate`. All services use the database selected
+by `.env`; uploads, logs, and signing keys persist in `app-storage`. Existing SQLite
+data is not transferred to PostgreSQL. The API
 is available at `http://localhost:8000`. To change the port, set `APP_PORT` and
-`APP_URL` in `.env.docker`, then run `APP_PORT=8080 docker compose up -d`.
+`APP_URL` in `.env`, then run `APP_PORT=8080 docker compose up -d`.
 
 Rebuild after code or dependency changes with `docker compose up --build -d`.
 Run Artisan commands inside the container with:
@@ -69,8 +81,25 @@ docker compose exec --user www-data app php artisan <command>
 ```
 
 Stop the stack with `docker compose down`. Data is retained unless you add
-`--volumes`, which deletes the database and stored files. Complete the OAuth2
+`--volumes`, which deletes stored files, signing keys, and any legacy SQLite
+database in that volume. External PostgreSQL data is unaffected. Complete the OAuth2
 setup below inside the app container for Docker deployments.
+
+### Local PostgreSQL on Linux
+
+If `.env` uses `DB_HOST=127.0.0.1` or `localhost` and PostgreSQL listens only on
+loopback, use the host-network overlay (Docker Compose 2.24.4+):
+
+```bash
+docker compose -f compose.yaml -f compose.postgres-host.yaml up --build -d
+```
+
+This development setup runs the API at `http://127.0.0.1:8000` using Laravel's
+development server. Its containers connect directly to the host's PostgreSQL.
+Keep `DB_CONNECTION=pgsql` and the existing PostgreSQL credentials in `.env`.
+Do not combine this overlay with `compose.ngrok.yaml`; use the host tunnel
+command in the ngrok section below. The standard Apache stack remains available
+for deployments with a database reachable over the container network.
 
 ## OAuth2 setup
 
@@ -136,11 +165,11 @@ Use `CACHE_STORE=database` and `QUEUE_CONNECTION=database` for the supplied setu
 Complete Docker setup first. Copy the ngrok environment example:
 
 ```bash
-cp .env.ngrok.example .env.ngrokenv
+cp .env.ngrok.example .env.ngrok
 ```
 
 Set `NGROK_AUTHTOKEN` and `NGROK_URL` to your full assigned HTTPS URL. In
-`.env.docker`, set `CORS_ALLOWED_ORIGINS` to the frontend origins, keep
+`.env`, set `CORS_ALLOWED_ORIGINS` to the frontend origins, keep
 `APP_DEBUG=false`, and set `SESSION_SECURE_COOKIE=true` when using public HTTPS.
 
 ```bash
@@ -148,9 +177,19 @@ docker compose --env-file .env.ngrok -f compose.yaml -f compose.ngrok.yaml up --
 docker compose --env-file .env.ngrok -f compose.yaml -f compose.ngrok.yaml logs -f ngrok
 ```
 
+For local PostgreSQL on Linux, use these overlays instead:
+
+```bash
+docker compose --env-file .env.ngrok -f compose.yaml -f compose.postgres-host.yaml -f compose.ngrok-host.yaml up --build -d
+```
+
+Both variants load application and database credentials from `.env`.
+`--env-file .env.ngrok` supplies tunnel variables, not the container database settings.
+
 Use the same Compose options for later commands. To stop only the tunnel:
 
 ```bash
+# Match the overlays used to start your stack.
 docker compose --env-file .env.ngrok -f compose.yaml -f compose.ngrok.yaml stop ngrok
 ```
 

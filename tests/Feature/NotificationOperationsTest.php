@@ -36,8 +36,8 @@ class NotificationOperationsTest extends TestCase
             ->doesntExpectOutputToContain('smtp-secret')->doesntExpectOutputToContain('twilio-secret')->assertSuccessful();
         Mail::assertNothingSent();
         Http::assertNothingSent();
-        $this->assertDatabaseCount('jobs', 0);
-        $this->assertDatabaseCount('notification_logs', 0);
+        $this->assertDatabaseCount('tbl_jobs', 0);
+        $this->assertDatabaseCount('tbl_notification_logs', 0);
     }
 
     public function test_readiness_rejects_log_mail_and_missing_provider_configuration(): void
@@ -51,8 +51,8 @@ class NotificationOperationsTest extends TestCase
     public function test_readiness_detects_missing_lock_table(): void
     {
         $this->readyConfiguration();
-        Schema::drop('cache_locks');
-        $this->artisan('consultations:check')->expectsOutputToContain('Missing table: cache_locks')->assertFailed();
+        Schema::drop('tbl_cache_locks');
+        $this->artisan('consultations:check')->expectsOutputToContain('Missing table: tbl_cache_locks')->assertFailed();
     }
 
     public function test_readiness_checks_optional_whatsapp_and_queue_requirements(): void
@@ -83,12 +83,12 @@ class NotificationOperationsTest extends TestCase
         $event->mutex->forget($event);
 
         $this->artisan('consultations:dispatch')->assertSuccessful();
-        $this->assertDatabaseCount('jobs', 2);
+        $this->assertDatabaseCount('tbl_jobs', 2);
         for ($i = 0; $i < 2; $i++) {
             $this->artisan('queue:work', ['--once' => true, '--tries' => 3, '--timeout' => 30])->assertSuccessful();
         }
-        $this->assertDatabaseCount('jobs', 0);
-        $this->assertDatabaseCount('failed_jobs', 0);
+        $this->assertDatabaseCount('tbl_jobs', 0);
+        $this->assertDatabaseCount('tbl_failed_jobs', 0);
         $this->assertSame(2, NotificationLog::where('status', 'sent')->where('attempts', 1)->count());
         Mail::assertSent(ConsultationReceived::class, 1);
         Http::assertSentCount(1);
