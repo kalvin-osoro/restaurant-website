@@ -29,7 +29,7 @@ curl http://localhost:8000/api/v1/health
 ```
 
 Content CRUD requests currently need no authentication. Complete
-[OAuth2 setup](#oauth2-setup) only when using protected account endpoints.
+[OAuth2 setup](#oauth2-setup) before using protected account or content-write endpoints.
 
 Upgrading an existing database to `tbl_` table names requires the pending rename
 migration. Stop application traffic, workers, and the scheduler while migrating,

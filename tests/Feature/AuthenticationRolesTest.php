@@ -46,15 +46,19 @@ class AuthenticationRolesTest extends TestCase
         $this->withToken($this->token($user))->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.permissions', ['account.view']);
     }
 
-    public function test_content_writes_do_not_require_an_account_role(): void
+    public function test_only_admins_and_managers_can_write_content_with_the_required_scope(): void
     {
         foreach ([Role::Admin, Role::Manager, Role::User] as $role) {
             app('auth')->forgetGuards();
             $user = $this->account($role);
             $response = $this->withToken($this->token($user))->postJson('/api/v1/practice-areas', ['slug' => $role->value, 'name' => $role->value]);
-            $response->assertCreated();
+            if ($role === Role::User) {
+                $response->assertForbidden();
+            } else {
+                $response->assertCreated();
+            }
         }
-        $this->assertDatabaseCount('tbl_practice_areas', 3);
+        $this->assertDatabaseCount('tbl_practice_areas', 2);
     }
 
     public function test_only_admins_can_assign_roles_and_changes_affect_existing_tokens(): void
@@ -75,7 +79,8 @@ class AuthenticationRolesTest extends TestCase
         $this->postJson('/api/v1/users/'.$admin->id.'/role', ['role' => 'user'])->assertUnprocessable();
         $this->postJson($url, ['role' => 'super-admin'])->assertUnprocessable();
         app('auth')->forgetGuards();
-        $this->withToken($targetToken)->postJson('/api/v1/practice-areas', ['slug' => 'other', 'name' => 'Other'])->assertCreated();
+        $this->withToken($targetToken)->postJson('/api/v1/practice-areas', ['slug' => 'other', 'name' => 'Other'])->assertForbidden();
+        $this->assertDatabaseMissing('tbl_practice_areas', ['slug' => 'other']);
     }
 
     public function test_role_cannot_be_mass_assigned_and_cli_can_bootstrap_admin(): void

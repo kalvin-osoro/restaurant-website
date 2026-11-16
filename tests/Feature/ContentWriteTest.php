@@ -2,12 +2,25 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Identity\Role;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Passport\Passport;
 use Tests\TestCase;
 
 class ContentWriteTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $user = new User(['name' => 'Editor', 'email' => 'editor@example.com', 'password' => 'strong-password-123']);
+        $user->role = Role::Manager;
+        $user->save();
+        Passport::actingAs($user, ['content.write']);
+    }
 
     private function profile(): array
     {
@@ -19,7 +32,7 @@ class ContentWriteTest extends TestCase
         ];
     }
 
-    public function test_content_writes_are_public_but_still_validate_requests(): void
+    public function test_authorized_content_writes_still_validate_requests(): void
     {
         $this->postJson('/api/v1/team', $this->profile())->assertUnprocessable()->assertJsonValidationErrors('practiceAreas.0');
         $this->postJson('/api/v1/case-categories', [])->assertUnprocessable()->assertJsonValidationErrors(['slug', 'name']);
@@ -28,7 +41,7 @@ class ContentWriteTest extends TestCase
         $this->getJson('/api/team')->assertNotFound();
     }
 
-    public function test_public_content_writes_remain_rate_limited(): void
+    public function test_authorized_content_writes_remain_rate_limited(): void
     {
         for ($i = 0; $i < 30; $i++) {
             $this->postJson('/api/v1/team', [])->assertUnprocessable();

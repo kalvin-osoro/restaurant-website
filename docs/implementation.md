@@ -363,12 +363,13 @@ public HTTPS origin followed by `/api/v1`, then restart/rebuild the frontend.
 | `/cases/{slug}` | Replace an existing case study's complete content |
 | `/case-categories` | Create a case category |
 
-Content POST endpoints are temporarily public during CRUD development. They
-require no token, login, role, or OAuth2 scope. Validation, publication defaults,
-transactional persistence, request auditing, and the shared 30 requests per minute
-per IP limit remain enabled. Account, logout, and role-assignment endpoints retain
-their existing OAuth2 protection. Authentication can be restored to content routes
-after the basic CRUD work is complete.
+Content POST endpoints require an OAuth2 bearer token with the `content.write`
+scope and an account with the `manager` or `admin` role. Validation, publication
+defaults, transactional persistence, request auditing, and the shared 30 requests
+per minute limit remain enabled. Missing, invalid, expired, or revoked tokens
+return 401; missing scopes or account permissions return 403 before validation
+or persistence. Public content GETs and consultation submissions remain accessible
+without a token.
 
 Request JSON uses the same camelCase record fields as the reviewed import format
 above, but send **one record** directly, without the top-level import arrays.
@@ -379,11 +380,13 @@ these endpoints do not accept multipart image uploads.
 
 ```bash
 curl -X POST "$API_BASE_URL/practice-areas" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H 'Accept: application/json' -H 'Content-Type: application/json' \
   --data '{"slug":"corporate-law","name":"Corporate Law"}'
 
 # partner.json contains a complete attorney record in the documented import format.
 curl -X POST "$API_BASE_URL/team" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H 'Accept: application/json' -H 'Content-Type: application/json' \
   --data-binary @partner.json
 ```
@@ -424,12 +427,34 @@ but its tokens are never accepted. Password and implicit grants stay disabled.
 | `manager` | `account.view`, `content.write` |
 | `admin` | `account.view`, `content.write`, `users.assign-roles` |
 
-OAuth2 scopes do not grant roles: protected account operations require both the
+OAuth2 scopes do not grant roles: protected account and content operations require both the
 token scope and the account permission. Role changes take effect on existing
-access tokens. Content GET/POST endpoints and consultation submissions are public
-for now. The `content.write` role permission/scope is defined for later use but is
-not enforced on content endpoints during CRUD development. The former shared
-content-token middleware and configuration have been removed.
+access tokens. Content GETs and consultation submissions are public. All content
+POSTs, including the team/attorneys aliases and replacements, require
+`content.write` and the corresponding account permission.
+
+### Protecting additional endpoints
+
+The reusable `oauth` middleware group is registered in [bootstrap/app.php](../bootstrap/app.php)
+and delegates token validation to Laravel's `auth:api` middleware and Passport
+guard configured in [config/auth.php](../config/auth.php). Passport validates the
+token signature, lifetime, revocation, and associated user. Browser sessions do
+not authenticate this guard. Controllers and application actions stay focused on
+their existing responsibilities.
+
+Attach authentication in [routes/api.php](../routes/api.php), then add token scope
+and Gate authorization for operations that require permissions:
+
+```php
+Route::middleware(['oauth', 'oauth.scope:content.write', 'can:content.write'])
+    ->group(function () {
+        // Protected endpoints.
+    });
+```
+
+Use `->middleware('oauth')` when an endpoint only requires an authenticated user.
+The scope middleware limits what the client token may do; Laravel's `can`
+middleware checks the account's current role through the existing Gates.
 
 ### Deployment prerequisites
 
@@ -451,6 +476,7 @@ managers are preserved. No clients or accounts are seeded automatically.
 | `GET /api/v1/me` | OAuth2 bearer token with `account.view` scope |
 | `POST /api/v1/auth/logout` | Revoke current OAuth2 access token and its associated refresh token |
 | `POST /api/v1/users/{id}/role` | Admin with `users.assign-roles` scope; body `role`: `admin`, `manager`, or `user` |
+| Content POST endpoints listed above | Manager/admin with `content.write` scope |
 
 1. Generate a cryptographically random 43–128-character `code_verifier` and a
    separate random `state`. Store both temporarily in the frontend session.
@@ -459,7 +485,8 @@ managers are preserved. No clients or accounts are seeded automatically.
    parameters `response_type=code`, `client_id`, `redirect_uri`, `state`,
    `code_challenge`, `code_challenge_method=S256`, and space-separated `scope`.
    The default scope is `account.view`; the admin role screen also requires
-   `users.assign-roles`. Content CRUD does not currently require an OAuth2 scope.
+   `users.assign-roles`. Content writes require `content.write`; request
+   `account.view content.write` for an editor client.
 4. The backend prompts for login and consent. On the frontend callback, validate
    `state` against the saved value before accepting any code. Handle denial via
    the OAuth2 `error` parameter and clear temporary state/verifier afterwards.
