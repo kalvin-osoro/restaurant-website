@@ -54,8 +54,8 @@ Route::middleware('throttle:60,1')->group(function () {
     });
 });
 
-// Content writes are temporarily public during CRUD development.
-Route::middleware('throttle:30,1')->group(function () {
+// A token scope and the account's current permission are both required.
+Route::middleware(['throttle:30,1', 'oauth', 'oauth.scope:content.write', 'can:content.write'])->group(function () {
     Route::prefix('team')->group(function () {
         Route::post('/', [TeamWriteController::class, 'store'])->name('api.team.store');
         Route::post('/{slug}', [TeamWriteController::class, 'store'])
@@ -83,7 +83,7 @@ Route::middleware('throttle:30,1')->group(function () {
     });
 });
 
-Route::middleware(['throttle:30,1', 'auth:api'])->group(function () {
+Route::middleware(['throttle:30,1', 'oauth'])->group(function () {
     Route::prefix('me')->group(function () {
         Route::get('/', [AccountController::class, 'show'])
             ->middleware(['oauth.scope:account.view', 'can:account.view'])->name('api.account.show');

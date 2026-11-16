@@ -13,6 +13,8 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\LogRequests::class,
         ]);
         $middleware->redirectGuestsTo(fn () => route('login'));
+        // Reusable OAuth2 authentication through Passport's API guard.
+        $middleware->group('oauth', ['auth:api']);
         $middleware->alias(['admin' => EnsureAdmin::class, 'oauth.scope' => \App\Http\Middleware\RequireOAuthScope::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
