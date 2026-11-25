@@ -1,15 +1,14 @@
 # Implementation and API reference
 
 For installing, configuring, and running the service, see the [README](../README.md).
-Keep future setup and runtime instructions in the README; maintain architecture,
-API contracts, data flows, and implementation explanations in this document.
 
 - [Content APIs](#public-attorney-profiles-and-case-studies)
 - [Consultations and notifications](#consultation-inquiries)
 - [Architecture](#architecture-and-file-placement)
 - [Content writes](#persisting-website-content-over-http)
 - [OAuth2 and permissions](#oauth2-authentication-roles-and-permissions)
-- [Tunnel networking](#tunnel-networking)
+- [Remote access with ngrok](#remote-access-with-ngrok)
+- [Maintenance and verification](#maintenance-and-verification)
 
 ## Standard application responses
 
@@ -201,6 +200,10 @@ prevents normal request processing. Restrict database access and configure reten
 for inquiry and audit records according to the firm's requirements.
 
 ### Notification delivery
+
+Container SMTP hosts must be reachable from containers. For host-based SMTP on
+Linux, use a reachable SMTP hostname or configure a
+`host.docker.internal:host-gateway` mapping.
 
 Check the environment before starting delivery processes:
 
@@ -456,9 +459,34 @@ Use `->middleware('oauth')` when an endpoint only requires an authenticated user
 The scope middleware limits what the client token may do; Laravel's `can`
 middleware checks the account's current role through the existing Gates.
 
-### Deployment prerequisites
+### OAuth2 setup
 
-Complete the [OAuth2 setup](../README.md#oauth2-setup) before using these flows.
+After migrating, generate signing keys once, create the first administrator, and
+register the frontend's public OAuth2 client:
+
+```bash
+php artisan passport:keys
+php artisan users:create admin@example.com --name="Administrator" --role=admin
+php artisan passport:client --public --name="99lawyers" --redirect_uri="http://localhost:3000/auth/callback"
+```
+
+The account command prompts for a password. Use your frontend's actual callback
+URL; it must match exactly. Store the printed client ID in frontend configuration
+such as `VITE_OAUTH_CLIENT_ID`. Public clients have no client secret.
+
+For Docker, use the same commands through Compose, for example:
+
+```bash
+docker compose exec --user www-data app php artisan passport:keys
+docker compose exec --user www-data app php artisan users:create admin@example.com --name="Administrator" --role=admin
+docker compose exec --user www-data app php artisan passport:client --public --name="99lawyers" --redirect_uri="http://localhost:3000/auth/callback"
+```
+
+Keep `storage/oauth-private.key` and `storage/oauth-public.key` persistent and
+shared across API replicas. Do not regenerate them at each startup. The Docker
+storage volume retains them. Alternatively configure `PASSPORT_PRIVATE_KEY` and
+`PASSPORT_PUBLIC_KEY` securely as multiline environment values.
+
 Existing `customer` and unknown legacy roles migrate to `user`; admins and
 managers are preserved. No clients or accounts are seeded automatically.
 
@@ -522,6 +550,78 @@ Run `php artisan passport:purge --revoked --expired` periodically to prune obsol
 OAuth2 records. See the official Laravel Passport documentation for the protocol:
 https://laravel.com/docs/12.x/passport#authorization-code-grant-with-pkce
 
+## Remote access with ngrok
+
+### Docker
+
+Complete the [Docker setup](../README.md#docker-setup) first. Copy the ngrok
+environment example:
+
+```bash
+cp .env.ngrok.example .env.ngrok
+```
+
+Set `NGROK_AUTHTOKEN` to your ngrok token and `NGROK_URL` to your full assigned
+HTTPS URL. In `.env`, set `CORS_ALLOWED_ORIGINS` to the frontend origins, keep
+`APP_DEBUG=false`, and set `SESSION_SECURE_COOKIE=true` when using public HTTPS.
+
+```bash
+docker compose --env-file .env.ngrok -f compose.yaml -f compose.ngrok.yaml up --build -d
+docker compose --env-file .env.ngrok -f compose.yaml -f compose.ngrok.yaml logs -f ngrok
+```
+
+For PostgreSQL bound to loopback on Linux, pair the host-network database
+overlay with the host tunnel overlay:
+
+```bash
+docker compose --env-file .env.ngrok -f compose.yaml -f compose.postgres-host.yaml -f compose.ngrok-host.yaml up --build -d
+```
+
+Both variants load application and database credentials from `.env`.
+`--env-file .env.ngrok` supplies tunnel variables, not the container database settings.
+
+Use the same Compose options for later commands. To stop only the tunnel:
+
+```bash
+# Match the overlays used to start your stack.
+docker compose --env-file .env.ngrok -f compose.yaml -f compose.ngrok.yaml stop ngrok
+```
+
+### Host PHP
+
+Install ngrok and register its authtoken with
+`ngrok config add-authtoken YOUR_TOKEN`. Update the host `.env`:
+
+```dotenv
+APP_URL=https://your-assigned-domain.ngrok-free.app
+APP_DEBUG=false
+TRUSTED_PROXIES=127.0.0.1,::1
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://your-frontend.example.com
+SESSION_SECURE_COOKIE=true
+```
+
+Run the API and tunnel in separate terminals:
+
+```bash
+php artisan config:clear
+php artisan serve --host=127.0.0.1 --port=8000
+```
+
+```bash
+ngrok http http://127.0.0.1:8000 --url=https://your-assigned-domain.ngrok-free.app --inspect=false
+```
+
+Verify using your assigned public URL:
+
+```bash
+curl -H 'Accept: application/json' https://your-assigned-domain.ngrok-free.app/api/v1/health
+```
+
+Set the frontend's `VITE_API_BASE_URL` to the backend origin followed by `/api/v1`,
+then restart/rebuild the frontend. Register its callback URL during [OAuth2 setup](#oauth2-setup).
+See [tunnel networking](#tunnel-networking) for proxy details
+and ngrok request headers.
+
 ## Tunnel networking
 
 The overlay requires nonempty URL/token settings, sets the API's `APP_URL` to the
@@ -544,6 +644,23 @@ const response = await fetch('https://your-assigned-domain.ngrok-free.app/api/v1
 });
 const page = await response.json();
 ```
+
+## Docker operations
+
+Rebuild after code or dependency changes with `docker compose up --build -d`.
+Use the Compose options from startup when running commands with an overlay.
+
+Inspect service logs or run an Artisan command inside the app container:
+
+```bash
+docker compose logs -f app queue scheduler
+docker compose logs migrate
+docker compose exec --user www-data app php artisan <command>
+```
+
+Stop the stack with `docker compose down`. The `app-storage` volume persists
+uploads, logs, signing keys, and any legacy SQLite database. Adding `--volumes`
+deletes that volume. External PostgreSQL data is unaffected.
 
 ## Automatic Docker migrations
 
@@ -633,10 +750,32 @@ failed-job, session, password-reset and job-batching configuration points to
 prefixed tables. Registration/content validation and notification readiness
 checks use those same physical names. The legacy Sanctum table stays unused.
 
-Stop the old app, queue, and scheduler before this schema transition. Run
+Keep the existing `APP_KEY` with the database backup. Stop the old app, queue,
+and scheduler before this schema transition. Run
 `php artisan config:clear`, then `php artisan migrate --force` yourself against
 the intended database and restart services with the updated code. Docker's
 migration service applies this pending migration on startup as usual; stop old
 containers before deploying the new stack. Existing records are not copied
 between databases. Rolling back this migration renames tables back and restores
 the legacy ledger; restore the matching application code before serving traffic.
+
+## Maintenance and verification
+
+```bash
+php artisan test
+php artisan consultations:dispatch
+php artisan queue:failed
+php artisan passport:purge --revoked --expired
+```
+
+After host configuration changes, run `php artisan config:clear` and restart
+long-running workers. For Docker, rebuild/recreate the services. Configure HTTPS,
+`APP_ENV=production`, `APP_DEBUG=false`, and secure session cookies for public hosting.
+
+If the health endpoint fails, check logs and migration status first. For ngrok
+upstream errors, verify local health before the public URL. For CORS errors, check
+the exact frontend origin. For notification failures and safe retry procedures,
+see [notification delivery](#notification-delivery).
+
+For optional development content and reviewed imports, see the
+[content reference](#directory-and-case-study-apis).
